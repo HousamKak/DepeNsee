@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project Dependency Visualizer</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔗</text></svg>">
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔗</text></svg>">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/styles.css">
     <!-- ThreeJS and related libraries -->
@@ -12,6 +14,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.9/dat.gui.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
 </head>
+
 <body>
     <!-- Welcome Modal -->
     <div id="welcome-modal" class="modal-container">
@@ -22,7 +25,7 @@
             <div class="modal-body">
                 <p>Welcome to the dependency visualization tool for JavaScript and TypeScript projects. Explore your
                     project's structure and dependencies in an interactive environment.</p>
-                
+
                 <div class="form-group" style="margin-top: 1.5rem;">
                     <label for="project-path">Project Directory Path</label>
                     <div class="form-input-group">
@@ -38,9 +41,9 @@
                         <input type="text" id="project-path" class="form-control" placeholder="Enter project path" />
                     </div>
                 </div>
-                
+
                 <div class="modal-divider">or</div>
-                
+
                 <div style="text-align: center;">
                     <button id="demo-btn" class="btn btn-outline">
                         Try with Demo Data
@@ -151,6 +154,13 @@
                         <label for="link-opacity">Link Opacity</label>
                         <input type="range" id="link-opacity" class="form-range" min="0" max="1" step="0.1" value="0.2">
                     </div>
+                    <h3>Graph Options</h3>
+                    <div class="form-group">
+                        <label for="directed-toggle">
+                            <input type="checkbox" id="directed-toggle" />
+                            Directed Graph
+                        </label>
+                    </div>
                 </div>
 
                 <div class="sidebar-section">
@@ -249,7 +259,7 @@
         #super-toggle-btn {
             display: none !important;
         }
-        
+
         /* Show the toggle only when visualization is active */
         body.visualization-active #super-toggle-btn {
             display: flex !important;
@@ -259,4 +269,5 @@
     <!-- JavaScript imports -->
     <script type="module" src="js/main.js"></script>
 </body>
+
 </html>
