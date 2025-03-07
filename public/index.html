@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project Dependency Visualizer</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔗</text></svg>">
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔗</text></svg>">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- ThreeJS and related libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -51,7 +53,12 @@
             line-height: 1.5;
         }
 
-        h1, h2, h3, h4, h5, h6 {
+        h1,
+        h2,
+        h3,
+        h4,
+        h5,
+        h6 {
             font-weight: 600;
             margin-bottom: 0.5rem;
         }
@@ -178,6 +185,65 @@
         .form-range::-webkit-slider-thumb:hover {
             transform: scale(1.2);
             background-color: var(--primary-light);
+        }
+
+        /* View mode toggle */
+        .view-toggle-container {
+            margin-bottom: 1rem;
+        }
+
+        .toggle-label {
+            font-size: 0.875rem;
+            color: var(--gray-300);
+            margin-bottom: 0.5rem;
+        }
+
+        .toggle-switch {
+            display: flex;
+            background-color: var(--gray-700);
+            border-radius: var(--border-radius);
+            overflow: hidden;
+            position: relative;
+            width: 100%;
+        }
+
+        .toggle-switch input[type="radio"] {
+            display: none;
+        }
+
+        .toggle-switch label {
+            flex: 1;
+            text-align: center;
+            padding: 0.5rem 0;
+            cursor: pointer;
+            z-index: 1;
+            transition: color 0.15s ease;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--gray-400);
+        }
+
+        .toggle-switch input[type="radio"]:checked+label {
+            color: white;
+        }
+
+        .toggle-switch::before {
+            content: '';
+            position: absolute;
+            width: 50%;
+            height: 100%;
+            background-color: var(--primary);
+            border-radius: calc(var(--border-radius) - 2px);
+            transition: transform 0.3s ease;
+            left: 0;
+        }
+
+        .toggle-switch input[type="radio"]:nth-of-type(1):checked~.toggle-switch::before {
+            transform: translateX(0);
+        }
+
+        .toggle-switch input[type="radio"]:nth-of-type(2):checked~.toggle-switch::before {
+            transform: translateX(100%);
         }
 
         .form-range-value {
@@ -583,8 +649,9 @@
                 width: 85%;
                 max-width: 320px;
             }
-            
-            .info-panel, .legend {
+
+            .info-panel,
+            .legend {
                 max-width: calc(100% - 2rem);
             }
         }
@@ -609,6 +676,7 @@
         }
     </style>
 </head>
+
 <body>
     <!-- Welcome Modal -->
     <div id="welcome-modal" class="modal-container">
@@ -617,13 +685,16 @@
                 <h2>Project Dependency Visualizer</h2>
             </div>
             <div class="modal-body">
-                <p>Welcome to the 3D dependency visualization tool for JavaScript and TypeScript projects. Explore your project's structure and dependencies in an interactive 3D environment.</p>
-                
+                <p>Welcome to the 3D dependency visualization tool for JavaScript and TypeScript projects. Explore your
+                    project's structure and dependencies in an interactive 3D environment.</p>
+
                 <div class="form-group" style="margin-top: 1.5rem;">
                     <label for="project-path">Project Directory Path</label>
                     <div class="form-input-group">
                         <span class="form-input-icon">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round">
                                 <path d="M3 6h18"></path>
                                 <path d="M3 12h18"></path>
                                 <path d="M3 18h18"></path>
@@ -632,9 +703,9 @@
                         <input type="text" id="project-path" class="form-control" placeholder="Enter project path" />
                     </div>
                 </div>
-                
+
                 <div class="modal-divider">or</div>
-                
+
                 <div style="text-align: center;">
                     <button id="demo-btn" class="btn btn-outline">
                         Try with Demo Data
@@ -651,7 +722,8 @@
     <div class="app-container">
         <!-- Sidebar Toggle Button -->
         <button class="toggle-sidebar" id="toggle-sidebar" title="Toggle Sidebar">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M3 12h18M3 6h18M3 18h18"></path>
             </svg>
         </button>
@@ -693,14 +765,18 @@
                     <h3>Visualization Controls</h3>
                     <div class="btn-group" style="margin-bottom: 1rem;">
                         <button id="reset-camera" class="btn btn-secondary">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.5rem;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" style="margin-right: 0.5rem;">
                                 <circle cx="12" cy="12" r="10"></circle>
                                 <polygon points="10 8 16 12 10 16 10 8"></polygon>
                             </svg>
                             Reset View
                         </button>
                         <button id="toggle-labels" class="btn btn-secondary">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.5rem;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" style="margin-right: 0.5rem;">
                                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
                                 <line x1="3" y1="9" x2="21" y2="9"></line>
                             </svg>
@@ -779,7 +855,8 @@
                 <div class="info-panel-header">
                     <h3 id="info-panel-title">File Details</h3>
                     <button class="close-btn" id="close-info-panel" title="Close Info Panel">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <line x1="18" y1="6" x2="6" y2="18"></line>
                             <line x1="6" y1="6" x2="18" y2="18"></line>
                         </svg>
@@ -824,7 +901,9 @@
                 this.showLabels = false;
                 this.minConnections = 0;
                 this.tooltip = this.createTooltip();
-                
+                this.viewMode = '3d'; // Default to 3D mode
+                this.initialized = false; // Flag to track initialization
+
                 // Color mapping
                 this.colorMap = {
                     '.ts': 0xff7700,   // Orange
@@ -833,109 +912,215 @@
                     '.jsx': 0x00ffaa,  // Teal
                     'library': 0xaaaaaa // Gray
                 };
-                
-                // DOM Elements
+
+                // DOM Elements - will set up in initUI method to ensure they exist
+                this.sidebar = null;
+                this.toggleSidebarBtn = null;
+                this.infoPanel = null;
+                this.closeInfoPanelBtn = null;
+
+                // Mousemove event - we'll use it carefully to avoid null camera errors
+                window.addEventListener('mousemove', (event) => {
+                    // Only use raycaster when camera is initialized
+                    if (this.initialized && this.camera) {
+                        this.onMouseMove(event);
+                    }
+                }, false);
+
+                // Window resize handler
+                window.addEventListener('resize', () => {
+                    if (this.initialized && this.camera) {
+                        this.handleResize();
+                    }
+                }, false);
+            }
+
+            // Initialize UI elements and event listeners
+            initUI() {
+                // Get DOM Elements
                 this.sidebar = document.getElementById('sidebar');
                 this.toggleSidebarBtn = document.getElementById('toggle-sidebar');
                 this.infoPanel = document.getElementById('info-panel');
                 this.closeInfoPanelBtn = document.getElementById('close-info-panel');
-                
-                // Setup event listeners
-                window.addEventListener('mousemove', this.onMouseMove.bind(this), false);
-                this.toggleSidebarBtn.addEventListener('click', this.toggleSidebar.bind(this));
-                this.closeInfoPanelBtn.addEventListener('click', () => this.infoPanel.classList.remove('active'));
-                
-                document.getElementById('reset-camera').addEventListener('click', this.resetCamera.bind(this));
-                document.getElementById('toggle-labels').addEventListener('click', this.toggleLabels.bind(this));
-                document.getElementById('file-type-filter').addEventListener('change', this.applyFilters.bind(this));
-                document.getElementById('library-filter').addEventListener('change', this.applyFilters.bind(this));
-                document.getElementById('filename-filter').addEventListener('input', this.applyFilters.bind(this));
-                
+
+                // Ensure toggle sidebar button is properly positioned and visible
+                if (this.toggleSidebarBtn) {
+                    this.toggleSidebarBtn.style.display = 'flex';
+                    this.toggleSidebarBtn.style.zIndex = '9999';
+                    this.toggleSidebarBtn.addEventListener('click', this.toggleSidebar.bind(this));
+                }
+
+                if (this.closeInfoPanelBtn) {
+                    this.closeInfoPanelBtn.addEventListener('click', () => {
+                        if (this.infoPanel) this.infoPanel.classList.remove('active');
+                    });
+                }
+
+                // Set up other UI control event listeners
+                const resetCameraBtn = document.getElementById('reset-camera');
+                if (resetCameraBtn) {
+                    resetCameraBtn.addEventListener('click', this.resetCamera.bind(this));
+                }
+
+                const toggleLabelsBtn = document.getElementById('toggle-labels');
+                if (toggleLabelsBtn) {
+                    toggleLabelsBtn.addEventListener('click', this.toggleLabels.bind(this));
+                }
+
+                const fileTypeFilter = document.getElementById('file-type-filter');
+                if (fileTypeFilter) {
+                    fileTypeFilter.addEventListener('change', this.applyFilters.bind(this));
+                }
+
+                const libraryFilter = document.getElementById('library-filter');
+                if (libraryFilter) {
+                    libraryFilter.addEventListener('change', this.applyFilters.bind(this));
+                }
+
+                const filenameFilter = document.getElementById('filename-filter');
+                if (filenameFilter) {
+                    filenameFilter.addEventListener('input', this.applyFilters.bind(this));
+                }
+
+                // View mode toggle
+                const view2d = document.getElementById('view-2d');
+                const view3d = document.getElementById('view-3d');
+
+                if (view2d) {
+                    view2d.addEventListener('change', () => this.setViewMode('2d'));
+                }
+
+                if (view3d) {
+                    view3d.addEventListener('change', () => this.setViewMode('3d'));
+                }
+
                 // Node size and link opacity controls
-                document.getElementById('node-size').addEventListener('input', (e) => {
-                    const size = parseFloat(e.target.value);
-                    Object.values(this.nodeObjects).forEach(node => {
-                        // Calculate size based on the original node size and the slider value
-                        const originalSize = this.nodes[node.userData.id].size;
-                        const scale = size / 5; // Normalize to the default value of 5
-                        node.scale.set(scale, scale, scale);
+                const nodeSizeSlider = document.getElementById('node-size');
+                if (nodeSizeSlider) {
+                    nodeSizeSlider.addEventListener('input', (e) => {
+                        const size = parseFloat(e.target.value);
+                        Object.values(this.nodeObjects).forEach(node => {
+                            // Calculate size based on the original node size and the slider value
+                            const originalSize = this.nodes[node.userData.id].size;
+                            const scale = size / 5; // Normalize to the default value of 5
+                            node.scale.set(scale, scale, scale);
+                        });
                     });
-                });
-                
-                document.getElementById('link-opacity').addEventListener('input', (e) => {
-                    const opacity = parseFloat(e.target.value);
-                    this.linkObjects.forEach(link => {
-                        link.material.opacity = opacity;
+                }
+
+                const linkOpacitySlider = document.getElementById('link-opacity');
+                if (linkOpacitySlider) {
+                    linkOpacitySlider.addEventListener('input', (e) => {
+                        const opacity = parseFloat(e.target.value);
+                        this.linkObjects.forEach(link => {
+                            link.material.opacity = opacity;
+                        });
                     });
-                });
-                
+                }
+
                 const minConnectionsSlider = document.getElementById('min-connections');
-                minConnectionsSlider.addEventListener('input', (e) => {
-                    this.minConnections = parseInt(e.target.value);
-                    document.getElementById('min-connections-value').textContent = this.minConnections;
-                    this.applyFilters();
-                });
-                
-                // Window resize handler
-                window.addEventListener('resize', this.handleResize.bind(this), false);
+                if (minConnectionsSlider) {
+                    minConnectionsSlider.addEventListener('input', (e) => {
+                        this.minConnections = parseInt(e.target.value);
+                        const valueDisplay = document.getElementById('min-connections-value');
+                        if (valueDisplay) {
+                            valueDisplay.textContent = this.minConnections;
+                        }
+                        this.applyFilters();
+                    });
+                }
             }
 
             async init(data) {
+                // Initialize UI first
+                this.initUI();
+
+                // Initialize Three.js components
                 this.initThree();
-                
+
                 // Process the dependency data
                 this.processData(data);
-                
+
                 // Create the graph visualization
                 this.createGraph();
-                
+
+                // Mark as initialized
+                this.initialized = true;
+
                 // Start animation loop
                 this.animate();
-                
+
                 // Populate filter dropdowns
                 this.populateFilters(data);
-                
+
                 // Update project info
                 this.updateProjectInfo(data);
-                
+
                 // Add initial hover hint
                 this.showTooltip('Hover over nodes to see file details. Click and drag to rotate the view.', {
                     x: window.innerWidth / 2,
                     y: window.innerHeight / 2
                 }, 5000);
+
+                // Debug info
+                console.log('Visualization initialized successfully');
+                console.log('Sidebar toggle button:', this.toggleSidebarBtn);
             }
 
             initThree() {
                 // Create scene
                 this.scene = new THREE.Scene();
                 this.scene.background = new THREE.Color(0x0f172a); // Match the sidebar background
-                
-                // Create camera
-                this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
+
+                // Create camera based on view mode
+                if (this.viewMode === '2d') {
+                    const width = window.innerWidth;
+                    const height = window.innerHeight;
+                    const aspectRatio = width / height;
+                    const frustumSize = 1000;
+
+                    this.camera = new THREE.OrthographicCamera(
+                        frustumSize * aspectRatio / -2,
+                        frustumSize * aspectRatio / 2,
+                        frustumSize / 2,
+                        frustumSize / -2,
+                        1,
+                        2000
+                    );
+                } else {
+                    this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
+                }
+
                 this.camera.position.z = 1000;
-                
+
                 // Create renderer
                 this.renderer = new THREE.WebGLRenderer({ antialias: true });
                 this.renderer.setSize(window.innerWidth, window.innerHeight);
                 this.renderer.setPixelRatio(window.devicePixelRatio);
                 document.getElementById('visualization-container').appendChild(this.renderer.domElement);
-                
-                // Create controls
+
+                // Create controls based on view mode
                 this.controls = new TrackballControls(this.camera, this.renderer.domElement);
                 this.controls.rotateSpeed = 1.5;
                 this.controls.zoomSpeed = 1.2;
                 this.controls.panSpeed = 0.8;
                 this.controls.keys = ['KeyA', 'KeyS', 'KeyD'];
-                
+
+                // Disable rotation in 2D mode
+                if (this.viewMode === '2d') {
+                    this.controls.noRotate = true;
+                    this.controls.staticMoving = true;
+                }
+
                 // Add ambient light
                 const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
                 this.scene.add(ambientLight);
-                
+
                 // Add point light
                 const pointLight = new THREE.PointLight(0xffffff, 1);
                 pointLight.position.set(100, 100, 100);
                 this.scene.add(pointLight);
-                
+
                 // Add directional light for better shadows
                 const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
                 dirLight.position.set(0, 200, 100);
@@ -955,18 +1140,18 @@
                         connections: 0
                     };
                 });
-                
+
                 // Create links and count connections
                 Object.keys(data.dependencies).forEach(source => {
                     const targets = data.dependencies[source];
-                    
+
                     targets.forEach(target => {
                         if (this.nodes[source] && this.nodes[target]) {
                             this.links.push({
                                 source,
                                 target
                             });
-                            
+
                             // Count connections for filtering
                             this.nodes[source].connections = (this.nodes[source].connections || 0) + 1;
                             this.nodes[target].connections = (this.nodes[target].connections || 0) + 1;
@@ -978,14 +1163,14 @@
             createGraph() {
                 // Clear existing objects
                 this.clearGraph();
-                
+
                 // Position nodes using a force-directed algorithm
                 this.positionNodes();
-                
+
                 // Create node objects
                 Object.values(this.nodes).forEach(node => {
                     if (node.connections < this.minConnections) return;
-                    
+
                     // Determine color based on file type
                     let color;
                     if (node.path.startsWith('library:')) {
@@ -994,232 +1179,353 @@
                         const ext = node.type.toLowerCase();
                         color = this.colorMap[ext] || 0xffffff;
                     }
-                    
+
                     // Create sphere for node with slightly better material
                     const geometry = new THREE.SphereGeometry(node.size, 32, 32);
-                    const material = new THREE.MeshPhongMaterial({ 
+                    const material = new THREE.MeshPhongMaterial({
                         color,
                         shininess: 70,
                         specular: 0x111111
                     });
                     const sphere = new THREE.Mesh(geometry, material);
-                    
+
                     sphere.position.set(node.x, node.y, node.z);
                     sphere.userData = { type: 'node', id: node.id, ...node };
-                    
+
                     this.scene.add(sphere);
                     this.nodeObjects[node.id] = sphere;
-                    
+
                     // Create text label
                     this.createLabel(node);
                 });
-                
+
                 // Create links
                 this.links.forEach(link => {
                     const sourceNode = this.nodes[link.source];
                     const targetNode = this.nodes[link.target];
-                    
+
                     if (!sourceNode || !targetNode) return;
                     if (sourceNode.connections < this.minConnections || targetNode.connections < this.minConnections) return;
-                    
+
                     const sourceObj = this.nodeObjects[link.source];
                     const targetObj = this.nodeObjects[link.target];
-                    
+
                     if (!sourceObj || !targetObj) return;
-                    
+
                     const start = sourceObj.position;
                     const end = targetObj.position;
-                    
+
                     // Use curved lines for better visualization
                     const curvePoints = this.createCurvedLinePath(start, end);
                     const geometry = new THREE.BufferGeometry().setFromPoints(curvePoints);
-                    
+
                     const material = new THREE.LineBasicMaterial({
                         color: 0x94a3b8, // A brighter gray
                         transparent: true,
                         opacity: 0.2
                     });
-                    
+
                     const line = new THREE.Line(geometry, material);
                     line.userData = { type: 'link', source: link.source, target: link.target };
-                    
+
                     this.scene.add(line);
                     this.linkObjects.push(line);
                 });
             }
 
             createCurvedLinePath(start, end) {
-                // Create a slightly curved line between two points
-                const midPoint = new THREE.Vector3(
-                    (start.x + end.x) / 2,
-                    (start.y + end.y) / 2,
-                    (start.z + end.z) / 2
-                );
-                
-                // Add a slight offset to create a curve
-                const distance = start.distanceTo(end);
-                const curveHeight = distance * 0.05;
-                
-                // Direction perpendicular to the line
-                const dir = new THREE.Vector3().subVectors(end, start);
-                const norm = new THREE.Vector3(-dir.y, dir.x, 0).normalize();
-                
-                midPoint.add(norm.multiplyScalar(curveHeight));
-                
-                // Create quadratic bezier curve
-                const curve = new THREE.QuadraticBezierCurve3(
-                    new THREE.Vector3(start.x, start.y, start.z),
-                    midPoint,
-                    new THREE.Vector3(end.x, end.y, end.z)
-                );
-                
-                return curve.getPoints(20);
+                // Create a curved line between two points - different for 2D and 3D
+                if (this.viewMode === '2d') {
+                    // In 2D mode, create a simple curved line in the xy plane
+                    const midPoint = new THREE.Vector3(
+                        (start.x + end.x) / 2,
+                        (start.y + end.y) / 2,
+                        0
+                    );
+
+                    // Add a slight offset to create a curve
+                    const dx = end.x - start.x;
+                    const dy = end.y - start.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    const curveHeight = distance * 0.1;
+
+                    // Create perpendicular offset
+                    const norm = new THREE.Vector3(-dy, dx, 0).normalize();
+                    midPoint.add(norm.multiplyScalar(curveHeight));
+
+                    // Create quadratic bezier curve
+                    const curve = new THREE.QuadraticBezierCurve3(
+                        new THREE.Vector3(start.x, start.y, 0),
+                        midPoint,
+                        new THREE.Vector3(end.x, end.y, 0)
+                    );
+
+                    return curve.getPoints(20);
+                } else {
+                    // In 3D mode, create a curved line in 3D space
+                    const midPoint = new THREE.Vector3(
+                        (start.x + end.x) / 2,
+                        (start.y + end.y) / 2,
+                        (start.z + end.z) / 2
+                    );
+
+                    // Add a slight offset to create a curve
+                    const distance = start.distanceTo(end);
+                    const curveHeight = distance * 0.05;
+
+                    // Direction perpendicular to the line
+                    const dir = new THREE.Vector3().subVectors(end, start);
+                    const norm = new THREE.Vector3(-dir.y, dir.x, 0).normalize();
+
+                    midPoint.add(norm.multiplyScalar(curveHeight));
+
+                    // Create quadratic bezier curve
+                    const curve = new THREE.QuadraticBezierCurve3(
+                        new THREE.Vector3(start.x, start.y, start.z),
+                        midPoint,
+                        new THREE.Vector3(end.x, end.y, end.z)
+                    );
+
+                    return curve.getPoints(20);
+                }
             }
 
             createLabel(node) {
                 const canvas = document.createElement('canvas');
                 const context = canvas.getContext('2d');
                 context.font = '24px Inter, sans-serif';
-                
+
                 // Get text width
                 const textWidth = context.measureText(node.name).width;
-                
+
                 // Set canvas size
                 canvas.width = textWidth + 20;
                 canvas.height = 40;
-                
+
                 // Draw background with rounded corners (fake it with canvas)
                 context.fillStyle = 'rgba(30, 41, 59, 0.85)';
                 context.beginPath();
                 context.roundRect(0, 0, canvas.width, canvas.height, 8);
                 context.fill();
-                
+
                 // Draw text
                 context.font = '24px Inter, sans-serif';
                 context.fillStyle = '#f8fafc';
                 context.fillText(node.name, 10, 28);
-                
+
                 // Create sprite
                 const texture = new THREE.CanvasTexture(canvas);
                 const material = new THREE.SpriteMaterial({ map: texture });
                 const sprite = new THREE.Sprite(material);
-                
+
                 sprite.position.set(node.x, node.y + 15, node.z);
                 sprite.scale.set(canvas.width / 2, canvas.height / 2, 1);
                 sprite.visible = this.showLabels;
-                
+
                 this.scene.add(sprite);
                 this.labelSprites.push({ sprite, nodeId: node.id });
+            }
+
+            setViewMode(mode) {
+                // Switch between 2D and 3D visualization modes
+                if (this.viewMode === mode) return; // No change needed
+
+                this.viewMode = mode;
+
+                // Clear current graph
+                this.clearGraph();
+
+                // Reposition nodes based on new mode
+                this.positionNodes();
+
+                // Create graph with new positions
+                this.createGraph();
+
+                // Update camera and controls for new mode
+                if (mode === '2d') {
+                    // Switch to orthographic camera for 2D
+                    const width = window.innerWidth;
+                    const height = window.innerHeight;
+                    const aspectRatio = width / height;
+                    const frustumSize = 1000;
+
+                    this.camera = new THREE.OrthographicCamera(
+                        frustumSize * aspectRatio / -2,
+                        frustumSize * aspectRatio / 2,
+                        frustumSize / 2,
+                        frustumSize / -2,
+                        1,
+                        2000
+                    );
+                    this.camera.position.z = 1000;
+                    this.camera.lookAt(0, 0, 0);
+
+                    // Use different controls for 2D mode
+                    if (this.controls) {
+                        this.controls.dispose();
+                    }
+
+                    this.controls = new TrackballControls(this.camera, this.renderer.domElement);
+                    this.controls.rotateSpeed = 2.0;
+                    this.controls.zoomSpeed = 1.2;
+                    this.controls.panSpeed = 0.8;
+                    this.controls.noRotate = true; // Disable rotation in 2D mode
+                    this.controls.staticMoving = true;
+
+                    this.showTooltip('Switched to 2D visualization', {
+                        x: window.innerWidth / 2,
+                        y: window.innerHeight / 2
+                    }, 2000);
+                } else {
+                    // Switch back to perspective camera for 3D
+                    this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
+                    this.camera.position.z = 1000;
+                    this.camera.lookAt(0, 0, 0);
+
+                    // Use different controls for 3D mode
+                    if (this.controls) {
+                        this.controls.dispose();
+                    }
+
+                    this.controls = new TrackballControls(this.camera, this.renderer.domElement);
+                    this.controls.rotateSpeed = 1.5;
+                    this.controls.zoomSpeed = 1.2;
+                    this.controls.panSpeed = 0.8;
+                    this.controls.keys = ['KeyA', 'KeyS', 'KeyD'];
+
+                    this.showTooltip('Switched to 3D visualization', {
+                        x: window.innerWidth / 2,
+                        y: window.innerHeight / 2
+                    }, 2000);
+                }
             }
 
             positionNodes() {
                 // Improved force-directed layout for better node positioning
                 const nodeArray = Object.values(this.nodes);
-                
+
                 // Start with random positions
                 nodeArray.forEach(node => {
                     node.x = (Math.random() - 0.5) * 1000;
                     node.y = (Math.random() - 0.5) * 1000;
-                    node.z = (Math.random() - 0.5) * 1000;
+                    node.z = this.viewMode === '2d' ? 0 : (Math.random() - 0.5) * 1000; // Force z=0 in 2D mode
                 });
-                
+
                 // Run iterations of force-directed algorithm
                 const iterations = 150; // More iterations for better layout
-                const repulsionForce = 2000; // Stronger repulsion
+                const repulsionForce = this.viewMode === '2d' ? 3000 : 2000; // Stronger repulsion in 2D
                 const attractionForce = 0.05; // Weaker attraction for better spacing
-                
+
                 for (let i = 0; i < iterations; i++) {
                     // Calculate repulsion forces
                     for (let a = 0; a < nodeArray.length; a++) {
                         const nodeA = nodeArray[a];
-                        
+
                         let forceX = 0;
                         let forceY = 0;
                         let forceZ = 0;
-                        
+
                         for (let b = 0; b < nodeArray.length; b++) {
                             if (a === b) continue;
-                            
+
                             const nodeB = nodeArray[b];
-                            
+
                             const dx = nodeA.x - nodeB.x;
                             const dy = nodeA.y - nodeB.y;
-                            const dz = nodeA.z - nodeB.z;
-                            
-                            const distance = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
-                            
+                            const dz = this.viewMode === '2d' ? 0 : nodeA.z - nodeB.z; // No z force in 2D mode
+
+                            // Calculate distance based on mode
+                            const distance = this.viewMode === '2d'
+                                ? Math.sqrt(dx * dx + dy * dy) || 1
+                                : Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
+
                             // Repulsion force (inverse square law)
                             const force = repulsionForce / (distance * distance);
-                            
+
                             forceX += dx / distance * force;
                             forceY += dy / distance * force;
-                            forceZ += dz / distance * force;
+                            if (this.viewMode === '3d') {
+                                forceZ += dz / distance * force;
+                            }
                         }
-                        
+
                         nodeA.forceX = forceX;
                         nodeA.forceY = forceY;
                         nodeA.forceZ = forceZ;
                     }
-                    
+
                     // Calculate attraction forces
                     this.links.forEach(link => {
                         const sourceNode = this.nodes[link.source];
                         const targetNode = this.nodes[link.target];
-                        
+
                         if (!sourceNode || !targetNode) return;
-                        
+
                         const dx = sourceNode.x - targetNode.x;
                         const dy = sourceNode.y - targetNode.y;
-                        const dz = sourceNode.z - targetNode.z;
-                        
-                        const distance = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
-                        
+                        const dz = this.viewMode === '2d' ? 0 : sourceNode.z - targetNode.z;
+
+                        // Calculate distance based on mode
+                        const distance = this.viewMode === '2d'
+                            ? Math.sqrt(dx * dx + dy * dy) || 1
+                            : Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
+
                         // Attraction force (Hooke's law)
                         const force = attractionForce * distance;
-                        
+
                         const fx = dx / distance * force;
                         const fy = dy / distance * force;
-                        const fz = dz / distance * force;
-                        
+                        const fz = this.viewMode === '3d' ? dz / distance * force : 0;
+
                         sourceNode.forceX -= fx;
                         sourceNode.forceY -= fy;
                         sourceNode.forceZ -= fz;
-                        
+
                         targetNode.forceX += fx;
                         targetNode.forceY += fy;
                         targetNode.forceZ += fz;
                     });
-                    
+
                     // Apply forces with cooling factor
                     const cooling = 1 - (i / iterations);
                     nodeArray.forEach(node => {
                         node.x += node.forceX * cooling || 0;
                         node.y += node.forceY * cooling || 0;
-                        node.z += node.forceZ * cooling || 0;
-                        
+                        if (this.viewMode === '3d') {
+                            node.z += node.forceZ * cooling || 0;
+                        } else {
+                            node.z = 0; // Force z=0 in 2D mode
+                        }
+
                         // Clear forces for next iteration
                         node.forceX = 0;
                         node.forceY = 0;
                         node.forceZ = 0;
                     });
                 }
-                
+
                 // Center the graph
                 let centerX = 0, centerY = 0, centerZ = 0;
                 nodeArray.forEach(node => {
                     centerX += node.x;
                     centerY += node.y;
-                    centerZ += node.z;
+                    if (this.viewMode === '3d') {
+                        centerZ += node.z;
+                    }
                 });
-                
+
                 centerX /= nodeArray.length;
                 centerY /= nodeArray.length;
-                centerZ /= nodeArray.length;
-                
+                if (this.viewMode === '3d') {
+                    centerZ /= nodeArray.length;
+                }
+
                 nodeArray.forEach(node => {
                     node.x -= centerX;
                     node.y -= centerY;
-                    node.z -= centerZ;
+                    if (this.viewMode === '3d') {
+                        node.z -= centerZ;
+                    }
                 });
             }
 
@@ -1228,17 +1534,17 @@
                 Object.values(this.nodeObjects).forEach(obj => {
                     this.scene.remove(obj);
                 });
-                
+
                 // Remove link objects
                 this.linkObjects.forEach(obj => {
                     this.scene.remove(obj);
                 });
-                
+
                 // Remove label sprites
                 this.labelSprites.forEach(({ sprite }) => {
                     this.scene.remove(sprite);
                 });
-                
+
                 // Reset collections
                 this.nodeObjects = {};
                 this.linkObjects = [];
@@ -1247,7 +1553,7 @@
 
             animate() {
                 requestAnimationFrame(this.animate.bind(this));
-                
+
                 this.controls.update();
                 this.updateLabelPositions();
                 this.renderer.render(this.scene, this.camera);
@@ -1256,7 +1562,7 @@
             updateLabelPositions() {
                 // Get camera position to make labels face the camera
                 const cameraPosition = this.camera.position.clone();
-                
+
                 this.labelSprites.forEach(({ sprite, nodeId }) => {
                     const nodeObj = this.nodeObjects[nodeId];
                     if (nodeObj) {
@@ -1266,7 +1572,7 @@
                             nodeObj.position.y + nodeObj.scale.y * 12,
                             nodeObj.position.z
                         );
-                        
+
                         // Make label face the camera
                         sprite.lookAt(cameraPosition);
                     }
@@ -1274,60 +1580,87 @@
             }
 
             onMouseMove(event) {
+                // Make sure we have the necessary components
+                if (!this.camera || !this.raycaster || !this.nodeObjects || Object.keys(this.nodeObjects).length === 0) {
+                    return;
+                }
+
                 // Calculate mouse position in normalized device coordinates
                 this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
                 this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-                
-                // Update the picking ray
-                this.raycaster.setFromCamera(this.mouse, this.camera);
-                
-                // Find intersections with nodes
-                const intersects = this.raycaster.intersectObjects(Object.values(this.nodeObjects));
-                
-                // Handle hover state
-                if (intersects.length > 0) {
-                    const object = intersects[0].object;
-                    
-                    if (this.hoveredObject !== object) {
-                        // Reset previous hover
-                        if (this.hoveredObject) {
+
+                try {
+                    // Update the picking ray
+                    this.raycaster.setFromCamera(this.mouse, this.camera);
+
+                    // Find intersections with nodes
+                    const intersects = this.raycaster.intersectObjects(Object.values(this.nodeObjects));
+
+                    // Handle hover state
+                    if (intersects.length > 0) {
+                        const object = intersects[0].object;
+
+                        if (this.hoveredObject !== object) {
+                            // Reset previous hover
+                            if (this.hoveredObject) {
+                                this.hoveredObject.material.emissive.setHex(0x000000);
+                            }
+
+                            // Set new hover
+                            this.hoveredObject = object;
+                            this.hoveredObject.material.emissive.setHex(0x333333);
+
+                            // Update info panel with animation
+                            const nodeData = object.userData;
+                            this.updateInfoPanel(nodeData);
+
+                            // Highlight connected nodes and links
+                            this.highlightConnections(nodeData.id);
+                        }
+                    } else {
+                        // Reset hover if not hovering over any node
+                        if (this.hoveredObject && !this.selectedObject) {
                             this.hoveredObject.material.emissive.setHex(0x000000);
+                            this.hoveredObject = null;
+
+                            // Hide info panel if no node is selected
+                            if (!this.selectedObject && this.infoPanel) {
+                                this.infoPanel.classList.remove('active');
+                            }
+
+                            // Reset highlighted connections
+                            this.resetHighlights();
                         }
-                        
-                        // Set new hover
-                        this.hoveredObject = object;
-                        this.hoveredObject.material.emissive.setHex(0x333333);
-                        
-                        // Update info panel with animation
-                        const nodeData = object.userData;
-                        this.updateInfoPanel(nodeData);
-                        
-                        // Highlight connected nodes and links
-                        this.highlightConnections(nodeData.id);
                     }
-                } else {
-                    // Reset hover if not hovering over any node
-                    if (this.hoveredObject && !this.selectedObject) {
-                        this.hoveredObject.material.emissive.setHex(0x000000);
-                        this.hoveredObject = null;
-                        
-                        // Hide info panel if no node is selected
-                        if (!this.selectedObject) {
-                            this.infoPanel.classList.remove('active');
-                        }
-                        
-                        // Reset highlighted connections
-                        this.resetHighlights();
-                    }
+                } catch (error) {
+                    // Silent error handling to prevent console spam
+                    console.debug('Mouse move error:', error);
                 }
             }
 
             updateInfoPanel(nodeData) {
+                // Check if the panel exists
+                if (!this.infoPanel) {
+                    this.infoPanel = document.getElementById('info-panel');
+                    if (!this.infoPanel) {
+                        console.debug('Info panel not found');
+                        return;
+                    }
+                }
+
+                const panelContent = document.getElementById('info-panel-content');
+                const panelTitle = document.getElementById('info-panel-title');
+
+                if (!panelContent || !panelTitle) {
+                    console.debug('Info panel content or title not found');
+                    return;
+                }
+
                 // Update info panel content
                 const isLibrary = nodeData.path.startsWith('library:');
-                
+
                 let content = '';
-                
+
                 if (isLibrary) {
                     content = `
                         <div class="info-item">
@@ -1367,10 +1700,10 @@
                         </div>
                     `;
                 }
-                
-                document.getElementById('info-panel-content').innerHTML = content;
-                document.getElementById('info-panel-title').textContent = isLibrary ? 'Library Details' : 'File Details';
-                
+
+                panelContent.innerHTML = content;
+                panelTitle.textContent = isLibrary ? 'Library Details' : 'File Details';
+
                 // Show info panel
                 this.infoPanel.classList.add('active');
             }
@@ -1378,17 +1711,17 @@
             highlightConnections(nodeId) {
                 // Reset previous highlights
                 this.resetHighlights();
-                
+
                 // Highlight links connected to this node
                 this.linkObjects.forEach(link => {
                     if (link.userData.source === nodeId || link.userData.target === nodeId) {
                         link.material.color.setHex(0x6366f1); // Primary color
                         link.material.opacity = 0.8;
-                        
+
                         // Highlight connected nodes
                         const connectedNodeId = link.userData.source === nodeId ? link.userData.target : link.userData.source;
                         const connectedNode = this.nodeObjects[connectedNodeId];
-                        
+
                         if (connectedNode) {
                             connectedNode.material.emissive.setHex(0x333333);
                         }
@@ -1402,7 +1735,7 @@
                     link.material.color.setHex(0x94a3b8);
                     link.material.opacity = 0.2;
                 });
-                
+
                 // Reset node highlights
                 Object.values(this.nodeObjects).forEach(node => {
                     if (node !== this.hoveredObject && node !== this.selectedObject) {
@@ -1412,36 +1745,50 @@
             }
 
             resetCamera() {
-                // Smoothly animate camera back to starting position
+                // Smoothly animate camera back to starting position based on view mode
                 const startPosition = this.camera.position.clone();
                 const endPosition = new THREE.Vector3(0, 0, 1000);
                 const duration = 1000; // ms
                 const startTime = Date.now();
-                
+
                 const animateCamera = () => {
                     const elapsed = Date.now() - startTime;
                     const progress = Math.min(elapsed / duration, 1);
-                    
+
                     // Ease function (cubic)
                     const ease = progress < 0.5 ? 4 * progress * progress * progress : 1 - Math.pow(-2 * progress + 2, 3) / 2;
-                    
+
                     // Interpolate position
                     const x = startPosition.x + (endPosition.x - startPosition.x) * ease;
                     const y = startPosition.y + (endPosition.y - startPosition.y) * ease;
                     const z = startPosition.z + (endPosition.z - startPosition.z) * ease;
-                    
+
                     this.camera.position.set(x, y, z);
                     this.camera.lookAt(0, 0, 0);
-                    
+
                     if (progress < 1) {
                         requestAnimationFrame(animateCamera);
                     } else {
                         this.controls.reset();
+
+                        // Reset zoom for orthographic camera in 2D mode
+                        if (this.viewMode === '2d' && this.camera.isOrthographicCamera) {
+                            const width = window.innerWidth;
+                            const height = window.innerHeight;
+                            const aspectRatio = width / height;
+                            const frustumSize = 1000;
+
+                            this.camera.left = frustumSize * aspectRatio / -2;
+                            this.camera.right = frustumSize * aspectRatio / 2;
+                            this.camera.top = frustumSize / 2;
+                            this.camera.bottom = frustumSize / -2;
+                            this.camera.updateProjectionMatrix();
+                        }
                     }
                 };
-                
+
                 animateCamera();
-                
+
                 // Show tooltip for guidance
                 this.showTooltip('Camera view has been reset', {
                     x: window.innerWidth / 2,
@@ -1451,11 +1798,11 @@
 
             toggleLabels() {
                 this.showLabels = !this.showLabels;
-                
+
                 this.labelSprites.forEach(({ sprite }) => {
                     sprite.visible = this.showLabels;
                 });
-                
+
                 // Show tooltip indicating the action
                 this.showTooltip(this.showLabels ? 'Labels turned on' : 'Labels turned off', {
                     x: window.innerWidth / 2,
@@ -1464,20 +1811,46 @@
             }
 
             toggleSidebar() {
+                if (!this.sidebar) {
+                    this.sidebar = document.getElementById('sidebar');
+                    if (!this.sidebar) {
+                        console.error('Cannot find sidebar element');
+                        return;
+                    }
+                }
+
                 this.sidebar.classList.toggle('sidebar-collapsed');
-                
+
                 // Adjust controls after sidebar toggle
                 setTimeout(() => {
-                    this.handleResize();
+                    if (this.initialized && this.camera) {
+                        this.handleResize();
+                    }
                 }, 300);
+
+                // Debug logging to ensure this method is called
+                console.log('Toggle sidebar called');
             }
 
             handleResize() {
                 // Update camera and renderer on window resize
                 const width = window.innerWidth;
                 const height = window.innerHeight;
-                
-                this.camera.aspect = width / height;
+
+                if (this.viewMode === '2d') {
+                    // Update orthographic camera
+                    const aspectRatio = width / height;
+                    const frustumSize = 1000;
+
+                    this.camera.left = frustumSize * aspectRatio / -2;
+                    this.camera.right = frustumSize * aspectRatio / 2;
+                    this.camera.top = frustumSize / 2;
+                    this.camera.bottom = frustumSize / -2;
+                } else {
+                    // Update perspective camera
+                    this.camera.aspect = width / height;
+                }
+
                 this.camera.updateProjectionMatrix();
                 this.renderer.setSize(width, height);
                 this.controls.handleResize();
@@ -1500,7 +1873,7 @@
                     option.textContent = 'Libraries';
                     fileTypeFilter.appendChild(option);
                 }
-                
+
                 // Populate library filter
                 const libraryFilter = document.getElementById('library-filter');
                 libraryFilter.innerHTML = '<option value="all">All Libraries</option>';
@@ -1518,7 +1891,7 @@
                 const fileTypeFilter = document.getElementById('file-type-filter').value;
                 const libraryFilter = document.getElementById('library-filter').value;
                 const filenameFilter = document.getElementById('filename-filter').value.toLowerCase();
-                
+
                 // Filter nodes based on selection
                 Object.values(this.nodes).forEach(node => {
                     // Skip nodes with too few connections
@@ -1526,9 +1899,9 @@
                         node.visible = false;
                         return;
                     }
-                    
+
                     let visible = true;
-                    
+
                     // Apply file type filter
                     if (fileTypeFilter !== 'all') {
                         if (node.path.startsWith('library:')) {
@@ -1539,22 +1912,22 @@
                             visible = false;
                         }
                     }
-                    
+
                     // Apply library filter
                     if (libraryFilter !== 'all') {
                         if (!node.path.includes(libraryFilter)) {
                             visible = false;
                         }
                     }
-                    
+
                     // Apply filename filter
                     if (filenameFilter && !node.name.toLowerCase().includes(filenameFilter)) {
                         visible = false;
                     }
-                    
+
                     node.visible = visible;
                 });
-                
+
                 // Recreate the graph with filtered nodes
                 this.createGraph();
             }
@@ -1563,11 +1936,11 @@
                 // Count total files
                 const totalFiles = Object.keys(data.nodeInfo).filter(path => !path.startsWith('library:')).length;
                 document.getElementById('total-files').textContent = totalFiles;
-                
+
                 // Count total libraries
                 const totalLibraries = data.libraries ? data.libraries.length : 0;
                 document.getElementById('total-libraries').textContent = totalLibraries;
-                
+
                 // Count total dependencies
                 let totalDependencies = 0;
                 Object.keys(data.dependencies).forEach(source => {
@@ -1589,7 +1962,7 @@
                 this.tooltip.style.left = `${position.x}px`;
                 this.tooltip.style.top = `${position.y}px`;
                 this.tooltip.classList.add('visible');
-                
+
                 // Set timeout to hide tooltip
                 setTimeout(() => {
                     this.tooltip.classList.remove('visible');
@@ -1605,30 +1978,30 @@
                 libraries: ['react', 'express', 'winston', 'joi', 'bcrypt', 'passport'],
                 fileTypes: ['.ts', '.js', '.tsx', '.jsx']
             };
-            
+
             // Create mock file structure
             const fileTypes = ['.ts', '.js', '.tsx', '.jsx'];
             const folders = ['src/api', 'src/models', 'src/services', 'src/utils', 'src/middleware'];
-            
+
             // Create files
             folders.forEach(folder => {
                 const fileCount = Math.floor(Math.random() * 5) + 3; // 3 to 7 files per folder
-                
+
                 for (let i = 0; i < fileCount; i++) {
                     const fileType = fileTypes[Math.floor(Math.random() * fileTypes.length)];
                     const fileName = `${folder}/file${i}${fileType}`;
-                    
+
                     mockData.nodeInfo[fileName] = {
                         name: `file${i}${fileType}`,
                         path: fileName,
                         type: fileType,
                         size: Math.random() * 5000 + 500 // random size between 500 and 5500 bytes
                     };
-                    
+
                     mockData.dependencies[fileName] = [];
                 }
             });
-            
+
             // Add library nodes
             mockData.libraries.forEach(lib => {
                 const libKey = `library:${lib}`;
@@ -1639,47 +2012,47 @@
                     size: 2000
                 };
             });
-            
+
             // Create random dependencies
             Object.keys(mockData.nodeInfo).forEach(source => {
                 if (source.startsWith('library:')) return; // Libraries don't import files
-                
+
                 // Add some dependencies to other files
                 const fileCount = Math.floor(Math.random() * 4) + 1; // 1 to 4 dependencies
                 const allFiles = Object.keys(mockData.nodeInfo).filter(f => f !== source);
-                
+
                 for (let i = 0; i < fileCount; i++) {
                     if (allFiles.length === 0) break;
-                    
+
                     const randomIndex = Math.floor(Math.random() * allFiles.length);
                     const target = allFiles[randomIndex];
-                    
+
                     mockData.dependencies[source].push(target);
-                    
+
                     // Remove to avoid duplicates
                     allFiles.splice(randomIndex, 1);
                 }
-                
+
                 // Add some dependencies to libraries
                 if (Math.random() > 0.3) { // 70% chance to have library dependency
                     const libCount = Math.floor(Math.random() * 3) + 1; // 1 to 3 library dependencies
                     const libs = [...mockData.libraries];
-                    
+
                     for (let i = 0; i < libCount; i++) {
                         if (libs.length === 0) break;
-                        
+
                         const randomIndex = Math.floor(Math.random() * libs.length);
                         const lib = libs[randomIndex];
                         const libKey = `library:${lib}`;
-                        
+
                         mockData.dependencies[source].push(libKey);
-                        
+
                         // Remove to avoid duplicates
                         libs.splice(randomIndex, 1);
                     }
                 }
             });
-            
+
             return mockData;
         }
 
@@ -1688,20 +2061,43 @@
             try {
                 document.getElementById('loading-container').classList.remove('hidden');
                 document.getElementById('welcome-modal').classList.add('hidden');
-                
+
                 // Make API request to analyze project
                 const response = await fetch(`/api/analyze?path=${encodeURIComponent(path)}`);
-                
+
                 if (!response.ok) {
                     throw new Error(`Failed to analyze project: ${response.statusText}`);
                 }
-                
+
                 const data = await response.json();
-                
-                // Initialize visualization
+
+                // Create the visualizer and initialize it after DOM is ready
                 const visualizer = new DependencyVisualizer();
+
+                // Delay slightly to ensure DOM is ready
+                await new Promise(resolve => setTimeout(resolve, 100));
+
                 await visualizer.init(data);
-                
+
+                // Extra safety measure: add toggle button event listener again after everything is loaded
+                const toggleSidebarBtn = document.getElementById('toggle-sidebar');
+                if (toggleSidebarBtn) {
+                    toggleSidebarBtn.style.display = 'flex';
+                    toggleSidebarBtn.style.zIndex = '9999';
+
+                    // Clear any existing listeners and add a fresh one
+                    const newToggleBtn = toggleSidebarBtn.cloneNode(true);
+                    toggleSidebarBtn.parentNode.replaceChild(newToggleBtn, toggleSidebarBtn);
+
+                    newToggleBtn.addEventListener('click', () => {
+                        const sidebar = document.getElementById('sidebar');
+                        if (sidebar) {
+                            sidebar.classList.toggle('sidebar-collapsed');
+                            console.log('Sidebar toggled via direct event handler');
+                        }
+                    });
+                }
+
                 document.getElementById('loading-container').classList.add('hidden');
             } catch (error) {
                 console.error('Error analyzing project:', error);
@@ -1715,14 +2111,37 @@
         async function loadDemoData() {
             document.getElementById('loading-container').classList.remove('hidden');
             document.getElementById('welcome-modal').classList.add('hidden');
-            
+
             // Create mock data
             const mockData = createMockData();
-            
+
             // Initialize visualization with mock data
             const visualizer = new DependencyVisualizer();
+
+            // Delay slightly to ensure DOM is ready
+            await new Promise(resolve => setTimeout(resolve, 100));
+
             await visualizer.init(mockData);
-            
+
+            // Extra safety measure: add toggle button event listener again after everything is loaded
+            const toggleSidebarBtn = document.getElementById('toggle-sidebar');
+            if (toggleSidebarBtn) {
+                toggleSidebarBtn.style.display = 'flex';
+                toggleSidebarBtn.style.zIndex = '9999';
+
+                // Clear any existing listeners and add a fresh one
+                const newToggleBtn = toggleSidebarBtn.cloneNode(true);
+                toggleSidebarBtn.parentNode.replaceChild(newToggleBtn, toggleSidebarBtn);
+
+                newToggleBtn.addEventListener('click', () => {
+                    const sidebar = document.getElementById('sidebar');
+                    if (sidebar) {
+                        sidebar.classList.toggle('sidebar-collapsed');
+                        console.log('Sidebar toggled via direct event handler');
+                    }
+                });
+            }
+
             document.getElementById('loading-container').classList.add('hidden');
         }
 
@@ -1730,7 +2149,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             // Polyfill for roundRect if not supported
             if (!CanvasRenderingContext2D.prototype.roundRect) {
-                CanvasRenderingContext2D.prototype.roundRect = function(x, y, width, height, radius) {
+                CanvasRenderingContext2D.prototype.roundRect = function (x, y, width, height, radius) {
                     if (width < 2 * radius) radius = width / 2;
                     if (height < 2 * radius) radius = height / 2;
                     this.beginPath();
@@ -1743,19 +2162,19 @@
                     return this;
                 };
             }
-            
+
             // Initialize form
             const analyzeBtn = document.getElementById('analyze-btn');
             const demoBtn = document.getElementById('demo-btn');
             const projectPathInput = document.getElementById('project-path');
-            
+
             // Set default path
             if (navigator.platform.includes('Win')) {
                 projectPathInput.value = 'C:\\path\\to\\your\\project';
             } else {
                 projectPathInput.value = '/path/to/your/project';
             }
-            
+
             // Setup event listeners
             analyzeBtn.addEventListener('click', () => {
                 const path = projectPathInput.value.trim();
@@ -1765,9 +2184,145 @@
                     alert('Please enter a valid project path');
                 }
             });
-            
+
             demoBtn.addEventListener('click', loadDemoData);
         });
     </script>
+    <!-- Advanced Sidebar Layering Fix -->
+    <style>
+        /* Force the sidebar to appear on top of everything */
+        #sidebar {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            z-index: 100000 !important;
+            /* Extremely high z-index */
+            width: 320px !important;
+            height: 100vh !important;
+            transform: none !important;
+            transition: transform 0.3s ease !important;
+            overflow-y: auto !important;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5) !important;
+        }
+
+        #sidebar.sidebar-collapsed {
+            transform: translateX(-320px) !important;
+        }
+
+        /* Force Three.js canvas to be behind the sidebar */
+        #visualization-container canvas {
+            position: absolute !important;
+            z-index: 1 !important;
+            /* Lower than sidebar */
+        }
+
+        /* Super toggle button that's always visible */
+        #super-toggle-btn {
+            position: fixed !important;
+            top: 15px;
+            left: 15px;
+            z-index: 200000 !important;
+            /* Higher than sidebar */
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background-color: #6366F1;
+            color: white;
+            border: none;
+            display: flex !important;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5) !important;
+            pointer-events: auto !important;
+            transition: left 0.3s ease, transform 0.2s ease !important;
+        }
+
+        #super-toggle-btn:hover {
+            transform: scale(1.1);
+        }
+
+        /* Hide all other toggle buttons */
+        .toggle-sidebar:not(#super-toggle-btn),
+        #floating-sidebar-toggle {
+            display: none !important;
+        }
+    </style>
+
+    <script>
+        // Run once DOM is fully loaded
+        window.addEventListener('load', function () {
+            console.log("Setting up z-index focused sidebar fix");
+
+            // Create our super button
+            const toggleButton = document.createElement('button');
+            toggleButton.id = 'super-toggle-btn';
+            toggleButton.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 12h18M3 6h18M3 18h18"></path>
+            </svg>
+        `;
+
+            // Toggle function
+            toggleButton.addEventListener('click', function () {
+                const sidebar = document.getElementById('sidebar');
+                if (!sidebar) return;
+
+                // Force the sidebar to the top of the DOM hierarchy (important!)
+                document.body.appendChild(sidebar);
+
+                if (sidebar.classList.contains('sidebar-collapsed')) {
+                    sidebar.classList.remove('sidebar-collapsed');
+                    toggleButton.style.left = '335px';
+                    console.log('Sidebar expanded with z-index priority');
+                } else {
+                    sidebar.classList.add('sidebar-collapsed');
+                    toggleButton.style.left = '15px';
+                    console.log('Sidebar collapsed with z-index priority');
+                }
+
+                // Force redraw
+                void sidebar.offsetWidth;
+
+                // Force style recalculation
+                setTimeout(() => {
+                    window.dispatchEvent(new Event('resize'));
+
+                    // Ensure sidebar remains at the highest DOM position
+                    document.body.appendChild(sidebar);
+                    document.body.appendChild(toggleButton);
+                }, 350);
+            });
+
+            document.body.appendChild(toggleButton);
+
+            // Position initially based on sidebar state
+            const sidebar = document.getElementById('sidebar');
+            if (sidebar) {
+                // Always move the sidebar to the top of the stack
+                document.body.appendChild(sidebar);
+
+                // Set initial button position
+                if (!sidebar.classList.contains('sidebar-collapsed')) {
+                    toggleButton.style.left = '335px';
+                }
+            }
+
+            // Move sidebar to the top level of the DOM for proper z-index behavior
+            function fixSidebarZIndex() {
+                const sidebar = document.getElementById('sidebar');
+                if (sidebar) {
+                    document.body.appendChild(sidebar);
+                    console.log("Sidebar moved to top DOM level for z-index priority");
+                }
+                document.body.appendChild(toggleButton);
+            }
+
+            // Run immediately and after a delay
+            fixSidebarZIndex();
+            setTimeout(fixSidebarZIndex, 1000);
+        });
+    </script>
 </body>
+
 </html>
