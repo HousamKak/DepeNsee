@@ -409,53 +409,92 @@ export class DependencyVisualizer {
     }
 
     // Create links between nodes
-    createLinks() {
-        this.links.forEach(link => {
-            const sourceNode = this.nodes[link.source];
-            const targetNode = this.nodes[link.target];
-
-            if (!sourceNode || !targetNode) return;
-            if (sourceNode.connections < this.minConnections || targetNode.connections < this.minConnections) return;
-            if ((!sourceNode.visible && sourceNode.visible !== undefined) ||
-                (!targetNode.visible && targetNode.visible !== undefined)) return;
-
-            const sourceObj = this.nodeObjects[link.source];
-            const targetObj = this.nodeObjects[link.target];
-
-            if (!sourceObj || !targetObj) return;
-
-            const start = sourceObj.position;
-            const end = targetObj.position;
-
-            // Create a curved line for the link
-            const curvePoints = this.createCurvedLinePath(start, end);
-            const geometry = new THREE.BufferGeometry().setFromPoints(curvePoints);
-            const material = new THREE.LineBasicMaterial({
-                color: 0x94a3b8,
-                transparent: true,
-                opacity: 0.2
-            });
-            const line = new THREE.Line(geometry, material);
-            line.userData = { type: 'link', source: link.source, target: link.target };
-
-            this.scene.add(line);
-            this.linkObjects.push(line);
-
-            // If directed graph is enabled, add an arrow helper
-            if (this.directed) {
-                const direction = new THREE.Vector3().subVectors(targetObj.position, sourceObj.position).normalize();
-                const linkLength = sourceObj.position.distanceTo(targetObj.position);
-                // Set arrow head length and width as a fraction of the link length
-                const headLength = linkLength * 0.1;
-                const headWidth = linkLength * 0.05;
-                // Create the arrow starting from source position along the computed direction
-                const arrow = new THREE.ArrowHelper(direction, sourceObj.position, linkLength, 0x6366f1, headLength, headWidth);
-                this.scene.add(arrow);
-                this.linkObjects.push(arrow);
-            }
+createLinks() {
+    this.links.forEach(link => {
+      const sourceNode = this.nodes[link.source];
+      const targetNode = this.nodes[link.target];
+  
+      if (!sourceNode || !targetNode) return;
+      if (sourceNode.connections < this.minConnections || targetNode.connections < this.minConnections) return;
+      if ((!sourceNode.visible && sourceNode.visible !== undefined) ||
+          (!targetNode.visible && targetNode.visible !== undefined)) return;
+  
+      const sourceObj = this.nodeObjects[link.source];
+      const targetObj = this.nodeObjects[link.target];
+      if (!sourceObj || !targetObj) return;
+  
+      // Create a curved line between the nodes
+      const start = sourceObj.position;
+      const end = targetObj.position;
+      const curvePoints = this.createCurvedLinePath(start, end);
+      const lineGeometry = new THREE.BufferGeometry().setFromPoints(curvePoints);
+      const lineMaterial = new THREE.LineBasicMaterial({
+        color: 0x94a3b8, // base connection color
+        transparent: true,
+        opacity: 0.2
+      });
+      const line = new THREE.Line(lineGeometry, lineMaterial);
+      line.userData = { type: 'link', source: link.source, target: link.target };
+      this.scene.add(line);
+      this.linkObjects.push(line);
+  
+      // If directed, add a small integrated arrow head at the end of the connection.
+      if (this.directed) {
+        // Get the last two points from the curve.
+        const len = curvePoints.length;
+        const pLast = curvePoints[len - 1];
+        const pSecondLast = curvePoints[len - 2];
+  
+        // Calculate the direction vector of the last segment.
+        const dir = new THREE.Vector3().subVectors(pLast, pSecondLast).normalize();
+  
+        // Set fixed parameters for a tiny, elegant arrow head.
+        const arrowLength = 10; // fixed length for arrow head
+        const arrowAngle = 20 * Math.PI / 180; // 20 degrees in radians
+  
+        // For a mostly 2D layout (z=0), we can compute a perpendicular using (–dir.y, dir.x, 0).
+        // (For a more robust 3D case, you might need to compute a proper perpendicular.)
+        const perp = new THREE.Vector3(-dir.y, dir.x, 0).normalize();
+  
+        // Compute two rotated directions for the arrow head edges.
+        const leftDir = dir.clone().applyAxisAngle(new THREE.Vector3(0, 0, 1), arrowAngle);
+        const rightDir = dir.clone().applyAxisAngle(new THREE.Vector3(0, 0, 1), -arrowAngle);
+  
+        // Compute the arrow head points (base points) by subtracting a fixed arrowLength.
+        const arrowLeft = pLast.clone().sub(leftDir.multiplyScalar(arrowLength));
+        const arrowRight = pLast.clone().sub(rightDir.multiplyScalar(arrowLength));
+  
+        // Create geometries for the two arrow segments.
+        const arrowGeomLeft = new THREE.BufferGeometry().setFromPoints([pLast, arrowLeft]);
+        const arrowGeomRight = new THREE.BufferGeometry().setFromPoints([pLast, arrowRight]);
+  
+        // Use a material with a stronger opacity and primary color for the arrow head.
+        const arrowMaterial = new THREE.LineBasicMaterial({
+          color: 0x6366F1,
+          transparent: true,
+          opacity: 0.8
         });
-    }
+  
+        const arrowLeftLine = new THREE.Line(arrowGeomLeft, arrowMaterial);
+        const arrowRightLine = new THREE.Line(arrowGeomRight, arrowMaterial);
+  
+        // Add these arrow head segments to the scene.
+        this.scene.add(arrowLeftLine);
+        this.scene.add(arrowRightLine);
+        this.linkObjects.push(arrowLeftLine, arrowRightLine);
+      }
+    });
+  }
+  
 
+    // Helper function to get a perpendicular vector
+    getPerpendicularVector(v) {
+        if (Math.abs(v.x) < 0.0001 && Math.abs(v.y) < 0.0001) {
+            return new THREE.Vector3(1, 0, 0);
+        } else {
+            return new THREE.Vector3(-v.y, v.x, 0).normalize();
+        }
+    }
 
     // Create curved path between nodes
     createCurvedLinePath(start, end) {
@@ -1200,14 +1239,11 @@ export class DependencyVisualizer {
         const fileTypeFilter = document.getElementById('file-type-filter')?.value || 'all';
         const libraryFilter = document.getElementById('library-filter')?.value || 'all';
         const filenameFilter = document.getElementById('filename-filter')?.value?.toLowerCase() || '';
+        const dependencyFilterMode = document.getElementById('dependency-filter')?.value || 'none';
 
         // For dependency-aware filtering
         let nodesToInclude = new Set();
-        let dependencyMode = 'none';
-
-        if (includeDependencies) {
-            dependencyMode = document.getElementById('dependency-filter')?.value || 'none';
-        }
+        let dependencyMode = includeDependencies ? dependencyFilterMode : 'none';
 
         // First pass: find nodes that match basic filters
         Object.values(this.nodes).forEach(node => {
@@ -1273,6 +1309,29 @@ export class DependencyVisualizer {
             });
 
             console.log(`Showing ${nodesToShow.length} nodes with dependency mode: ${dependencyMode}`);
+        } else if (filenameFilter) {
+            // Special handling for filename filter to show connections
+            const matchedNodes = Object.values(this.nodes).filter(node =>
+                node.name.toLowerCase().includes(filenameFilter)
+            );
+
+            // Find all connected nodes (both dependencies and dependents)
+            const connectedNodeIds = new Set();
+            matchedNodes.forEach(node => {
+                // Add direct dependencies
+                (this.dependencies[node.id] || []).forEach(depId => connectedNodeIds.add(depId));
+
+                // Add dependents
+                (this.dependents[node.id] || []).forEach(dependentId => connectedNodeIds.add(dependentId));
+
+                // Always include the matched nodes
+                connectedNodeIds.add(node.id);
+            });
+
+            // Visibility based on connected nodes
+            Object.values(this.nodes).forEach(node => {
+                node.visible = connectedNodeIds.has(node.id);
+            });
         }
 
         // Recreate graph with filtered nodes
