@@ -22,10 +22,12 @@ export class DependencyVisualizer {
         this.hoveredObject = null;
         this.selectedObject = null;
         this.labelSprites = [];
+        this.searchHighlightedNodes = [];
         this.showLabels = false;
         this.minConnections = 0;
         this.tooltip = this.createTooltip();
         this.viewMode = '2d'; // Default to 2D mode
+        this.connectionStyle = 'receptor'; // Default to receptor style ('receptor' or 'arrow')
         this.initialized = false; // Flag to track initialization
         this.rawData = null; // Store raw data for filtering
 
@@ -93,6 +95,15 @@ export class DependencyVisualizer {
 
         // Setup the directed toggle
         this.setupDirectedToggle();
+
+        // Setup connection style toggle
+        this.setupConnectionStyleToggle();
+
+        // Add this line to set up search functionality
+        this.setupSearchFunctionality();
+
+        // Also set up the debug button for easier troubleshooting
+        this.setupDebugButton();
     }
 
     // Set up visualization control buttons
@@ -130,6 +141,7 @@ export class DependencyVisualizer {
             });
         }
     }
+
     setupDirectedToggle() {
         const directedToggle = document.getElementById('directed-toggle');
         if (directedToggle) {
@@ -140,6 +152,52 @@ export class DependencyVisualizer {
                 this.createGraph();
                 // Optionally, show a tooltip to confirm the change:
                 this.showTooltip(this.directed ? 'Directed Graph Enabled' : 'Directed Graph Disabled', {
+                    x: window.innerWidth / 2,
+                    y: window.innerHeight / 2
+                }, 1500);
+            });
+        }
+    }
+
+    setupConnectionStyleToggle() {
+        // Check if the element already exists
+        let connectionStyleToggle = document.getElementById('connection-style-toggle');
+
+        // If it doesn't exist in the HTML, create it
+        if (!connectionStyleToggle) {
+            const directedToggleElement = document.getElementById('directed-toggle');
+            if (!directedToggleElement) return;
+
+            // Create the connection style toggle
+            const toggleContainer = document.createElement('div');
+            toggleContainer.className = 'form-group';
+            toggleContainer.innerHTML = `
+                <label for="connection-style-toggle">Connection Style</label>
+                <select id="connection-style-toggle" class="form-control">
+                    <option value="receptor">Receptor Style</option>
+                    <option value="arrow">Arrow Style</option>
+                </select>
+            `;
+
+            // Insert after the directed toggle
+            directedToggleElement.parentNode.parentNode.insertBefore(
+                toggleContainer,
+                directedToggleElement.parentNode.nextSibling
+            );
+
+            // Get the newly created element
+            connectionStyleToggle = document.getElementById('connection-style-toggle');
+        }
+
+        // Set up event listener
+        if (connectionStyleToggle) {
+            connectionStyleToggle.addEventListener('change', (e) => {
+                this.connectionStyle = e.target.value;
+                // Rebuild the graph to update connection styles
+                this.clearGraph();
+                this.createGraph();
+                // Show a tooltip to confirm the change
+                this.showTooltip(`Connection style changed to ${this.connectionStyle}`, {
                     x: window.innerWidth / 2,
                     y: window.innerHeight / 2
                 }, 1500);
@@ -297,8 +355,13 @@ export class DependencyVisualizer {
 
         // Disable rotation in 2D mode
         if (this.viewMode === '2d') {
-            this.controls.noRotate = true;
+            this.controls.rotateSpeed = 0; // Disable rotation completely
+            this.controls.zoomSpeed = 1.2;
+            this.controls.panSpeed = 1.5; // Increase pan speed for better response
+            this.controls.noRotate = true; // Disable rotation
             this.controls.staticMoving = true;
+            this.controls.noPan = false; // Explicitly enable panning
+            this.controls.enabled = true; // Make sure controls are enabled
         }
 
         // Add lights for better rendering
@@ -331,14 +394,20 @@ export class DependencyVisualizer {
 
     // Process raw dependency data into node and link objects
     processData(data) {
-        // Create nodes
+        // Create nodes with better size scaling
         Object.keys(data.nodeInfo).forEach(path => {
             const nodeData = data.nodeInfo[path];
+
+            // Calculate node size with more balanced scaling
+            // Libraries slightly larger than files for better visual hierarchy
+            const baseSize = path.startsWith('library:') ? 4.5 : 3.5;
+
             this.nodes[path] = {
                 id: path,
                 name: nodeData.name,
                 type: nodeData.type,
-                size: Math.min(10, Math.max(3, Math.log(nodeData.size || 100) / Math.log(10))),
+                // Better size scaling that doesn't get too extreme with large files
+                size: baseSize * (1 + Math.log(nodeData.size || 100) / Math.log(10000) * 0.5),
                 path: nodeData.path,
                 connections: 0
             };
@@ -408,99 +477,265 @@ export class DependencyVisualizer {
         this.createLinks();
     }
 
-    // Create links between nodes
-createLinks() {
-    this.links.forEach(link => {
-      const sourceNode = this.nodes[link.source];
-      const targetNode = this.nodes[link.target];
-  
-      if (!sourceNode || !targetNode) return;
-      if (sourceNode.connections < this.minConnections || targetNode.connections < this.minConnections) return;
-      if ((!sourceNode.visible && sourceNode.visible !== undefined) ||
-          (!targetNode.visible && targetNode.visible !== undefined)) return;
-  
-      const sourceObj = this.nodeObjects[link.source];
-      const targetObj = this.nodeObjects[link.target];
-      if (!sourceObj || !targetObj) return;
-  
-      // Create a curved line between the nodes
-      const start = sourceObj.position;
-      const end = targetObj.position;
-      const curvePoints = this.createCurvedLinePath(start, end);
-      const lineGeometry = new THREE.BufferGeometry().setFromPoints(curvePoints);
-      const lineMaterial = new THREE.LineBasicMaterial({
-        color: 0x94a3b8, // base connection color
-        transparent: true,
-        opacity: 0.2
-      });
-      const line = new THREE.Line(lineGeometry, lineMaterial);
-      line.userData = { type: 'link', source: link.source, target: link.target };
-      this.scene.add(line);
-      this.linkObjects.push(line);
-  
-      // If directed, add a small integrated arrow head at the end of the connection.
-      if (this.directed) {
-        // Get the last two points from the curve.
-        const len = curvePoints.length;
-        const pLast = curvePoints[len - 1];
-        const pSecondLast = curvePoints[len - 2];
-  
-        // Calculate the direction vector of the last segment.
-        const dir = new THREE.Vector3().subVectors(pLast, pSecondLast).normalize();
-  
-        // Set fixed parameters for a tiny, elegant arrow head.
-        const arrowLength = 10; // fixed length for arrow head
-        const arrowAngle = 20 * Math.PI / 180; // 20 degrees in radians
-  
-        // For a mostly 2D layout (z=0), we can compute a perpendicular using (–dir.y, dir.x, 0).
-        // (For a more robust 3D case, you might need to compute a proper perpendicular.)
-        const perp = new THREE.Vector3(-dir.y, dir.x, 0).normalize();
-  
-        // Compute two rotated directions for the arrow head edges.
-        const leftDir = dir.clone().applyAxisAngle(new THREE.Vector3(0, 0, 1), arrowAngle);
-        const rightDir = dir.clone().applyAxisAngle(new THREE.Vector3(0, 0, 1), -arrowAngle);
-  
-        // Compute the arrow head points (base points) by subtracting a fixed arrowLength.
-        const arrowLeft = pLast.clone().sub(leftDir.multiplyScalar(arrowLength));
-        const arrowRight = pLast.clone().sub(rightDir.multiplyScalar(arrowLength));
-  
-        // Create geometries for the two arrow segments.
-        const arrowGeomLeft = new THREE.BufferGeometry().setFromPoints([pLast, arrowLeft]);
-        const arrowGeomRight = new THREE.BufferGeometry().setFromPoints([pLast, arrowRight]);
-  
-        // Use a material with a stronger opacity and primary color for the arrow head.
-        const arrowMaterial = new THREE.LineBasicMaterial({
-          color: 0x6366F1,
-          transparent: true,
-          opacity: 0.8
-        });
-  
-        const arrowLeftLine = new THREE.Line(arrowGeomLeft, arrowMaterial);
-        const arrowRightLine = new THREE.Line(arrowGeomRight, arrowMaterial);
-  
-        // Add these arrow head segments to the scene.
-        this.scene.add(arrowLeftLine);
-        this.scene.add(arrowRightLine);
-        this.linkObjects.push(arrowLeftLine, arrowRightLine);
-      }
-    });
-  }
-  
+    // This modification ensures arrows go FROM dependency TO dependent (what uses it)
+    // The key insight is that in the data structure:
+    // - dependencies[A] = [B, C] means "A imports/depends on B and C"
+    // - So arrows should go from B→A and C→A (showing B and C are dependencies of A)
 
-    // Helper function to get a perpendicular vector
-    getPerpendicularVector(v) {
-        if (Math.abs(v.x) < 0.0001 && Math.abs(v.y) < 0.0001) {
-            return new THREE.Vector3(1, 0, 0);
-        } else {
-            return new THREE.Vector3(-v.y, v.x, 0).normalize();
-        }
+    // 1. Update the createLinks method to reverse the way it draws connections
+    createLinks() {
+        // First, collect all connections per node to enable better distribution
+        const nodeConnections = {};
+
+        // Initialize empty arrays for each node
+        Object.keys(this.nodeObjects).forEach(nodeId => {
+            nodeConnections[nodeId] = { incoming: [], outgoing: [] };
+        });
+
+        // IMPORTANT: Collect all connections with REVERSED direction for visualization
+        // Original data: source → target means "source imports target"
+        // But visually we want: target → source to show "target is a dependency of source"
+        this.links.forEach(link => {
+            const sourceNode = this.nodes[link.source];
+            const targetNode = this.nodes[link.target];
+
+            if (!sourceNode || !targetNode) return;
+            if (sourceNode.connections < this.minConnections || targetNode.connections < this.minConnections) return;
+            if ((!sourceNode.visible && sourceNode.visible !== undefined) ||
+                (!targetNode.visible && targetNode.visible !== undefined)) return;
+
+            // REVERSE the direction: target → source for visualization
+            // This is because target is a dependency of source
+            if (nodeConnections[link.target]) {
+                nodeConnections[link.target].outgoing.push(link.source);
+            }
+
+            if (nodeConnections[link.source]) {
+                nodeConnections[link.source].incoming.push(link.target);
+            }
+        });
+
+        // Now create the links with correct direction: from dependency to dependent
+        this.links.forEach(link => {
+            const sourceNode = this.nodes[link.source];
+            const targetNode = this.nodes[link.target];
+
+            if (!sourceNode || !targetNode) return;
+            if (sourceNode.connections < this.minConnections || targetNode.connections < this.minConnections) return;
+            if ((!sourceNode.visible && sourceNode.visible !== undefined) ||
+                (!targetNode.visible && targetNode.visible !== undefined)) return;
+
+            const sourceObj = this.nodeObjects[link.source];
+            const targetObj = this.nodeObjects[link.target];
+            if (!sourceObj || !targetObj) return;
+
+            // IMPORTANT: REVERSE the visual connection - we want to draw an arrow
+            // FROM the dependency (target) TO the dependent (source)
+            const visualSource = targetObj;  // The dependency (what is imported)
+            const visualTarget = sourceObj;  // The dependent (what imports)
+
+            // Get indices for better connection distribution
+            // We're now using the reversed connections we calculated above
+            const sourceOutIndex = nodeConnections[link.target].outgoing.indexOf(link.source);
+            const sourceOutCount = nodeConnections[link.target].outgoing.length;
+            const targetInIndex = nodeConnections[link.source].incoming.indexOf(link.target);
+            const targetInCount = nodeConnections[link.source].incoming.length;
+
+            // Get connection points with correct visual direction
+            const connectionPoints = this.getConnectionPoints(
+                visualSource, visualTarget,  // REVERSED
+                sourceOutIndex, sourceOutCount,
+                targetInIndex, targetInCount
+            );
+
+            const start = connectionPoints.start;
+            const end = connectionPoints.end;
+
+            // Create curved path between the adjusted points
+            const curvePoints = this.createCurvedLinePath(start, end);
+
+            // Create the base connection line
+            const lineGeometry = new THREE.BufferGeometry().setFromPoints(curvePoints);
+            const lineMaterial = new THREE.LineBasicMaterial({
+                color: 0x94a3b8,
+                transparent: true,
+                opacity: 0.3
+            });
+            const line = new THREE.Line(lineGeometry, lineMaterial);
+
+            // Store the data relationship but with visual direction in mind
+            line.userData = {
+                type: 'link',
+                source: link.target,  // REVERSED - visual source is the dependency
+                target: link.source,  // REVERSED - visual target is the dependent
+                // Keep track of the data relationship too (what imports what)
+                dataSource: link.source,  // Original data: source imports target
+                dataTarget: link.target
+            };
+
+            this.scene.add(line);
+            this.linkObjects.push(line);
+
+            // If directed, add connection endpoint based on selected style
+            if (this.directed) {
+                // Get the last two points from the curve to determine arrow direction
+                const len = curvePoints.length;
+                const pLast = curvePoints[len - 1]; // End point (at visualTarget)
+                const pSecondLast = curvePoints[len - 2];
+
+                // Calculate the direction vector of the last segment
+                const dir = new THREE.Vector3().subVectors(pLast, pSecondLast).normalize();
+
+                if (this.connectionStyle === 'receptor') {
+                    // RECEPTOR STYLE
+                    const receptorSize = 2.5;
+
+                    const receptorGeometry = new THREE.CircleGeometry(receptorSize, 16);
+                    const receptorMaterial = new THREE.MeshBasicMaterial({
+                        color: 0x6366F1,
+                        transparent: true,
+                        opacity: 0.9,
+                        side: THREE.DoubleSide
+                    });
+
+                    const receptor = new THREE.Mesh(receptorGeometry, receptorMaterial);
+
+                    // Position right at end point (which is already on the surface)
+                    receptor.position.copy(pLast);
+
+                    // Rotation logic based on view mode
+                    if (this.viewMode === '3d') {
+                        receptor.lookAt(pSecondLast);
+                        receptor.rotateX(Math.PI / 2);
+                    } else {
+                        const angle = Math.atan2(dir.y, dir.x) - Math.PI / 2;
+                        receptor.rotation.z = angle;
+                    }
+
+                    // Add a subtle glow effect
+                    const glowGeometry = new THREE.CircleGeometry(receptorSize * 1.8, 16);
+                    const glowMaterial = new THREE.MeshBasicMaterial({
+                        color: 0x6366F1,
+                        transparent: true,
+                        opacity: 0.3,
+                        side: THREE.DoubleSide
+                    });
+
+                    const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+                    glow.position.copy(pLast);
+
+                    // Apply same rotation as receptor
+                    glow.rotation.copy(receptor.rotation);
+
+                    this.scene.add(receptor);
+                    this.scene.add(glow);
+                    this.linkObjects.push(receptor, glow);
+                } else {
+                    // ARROW STYLE
+                    const arrowLength = 5;
+                    const arrowWidth = 2;
+
+                    const tip = pLast.clone();
+
+                    const perpendicular = new THREE.Vector3(-dir.y, dir.x, 0).normalize().multiplyScalar(arrowWidth);
+
+                    const baseCenter = tip.clone().sub(dir.clone().multiplyScalar(arrowLength));
+                    const baseLeft = baseCenter.clone().add(perpendicular);
+                    const baseRight = baseCenter.clone().sub(perpendicular);
+
+                    const arrowGeometry = new THREE.BufferGeometry();
+                    const vertices = new Float32Array([
+                        tip.x, tip.y, tip.z,
+                        baseLeft.x, baseLeft.y, baseLeft.z,
+                        baseRight.x, baseRight.y, baseRight.z
+                    ]);
+
+                    arrowGeometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+
+                    const arrowMaterial = new THREE.MeshBasicMaterial({
+                        color: 0x6366F1,
+                        transparent: true,
+                        opacity: 0.9,
+                        side: THREE.DoubleSide
+                    });
+
+                    const arrowMesh = new THREE.Mesh(arrowGeometry, arrowMaterial);
+
+                    this.scene.add(arrowMesh);
+                    this.linkObjects.push(arrowMesh);
+                }
+            }
+        });
     }
 
+    // New method to calculate connection points on the surface of nodes
+    // Replace the getConnectionPoints method in DependencyVisualizer.js with this version:
+    getConnectionPoints(sourceObj, targetObj, sourceIndex, sourceCount, targetIndex, targetCount) {
+        // Get positions and sizes
+        const sourcePos = sourceObj.position.clone();
+        const targetPos = targetObj.position.clone();
+
+        // Get radii (using scale to account for node size changes)
+        const sourceRadius = sourceObj.geometry.parameters.radius * sourceObj.scale.x;
+        const targetRadius = targetObj.geometry.parameters.radius * targetObj.scale.x;
+
+        // CORRECT DIRECTION: In our data structure, source depends on target
+        // So arrows should go FROM target TO source to show "target is a dependency of source"
+        const dirVector = new THREE.Vector3().subVectors(targetPos, sourcePos).normalize();
+
+        // Create perpendicular vector for distribution around node
+        const perpVector = new THREE.Vector3(-dirVector.y, dirVector.x, 0).normalize();
+
+        // Calculate offset angles based on distribution
+        let sourceAngleOffset = 0;
+        let targetAngleOffset = 0;
+
+        if (sourceCount > 1) {
+            // Distribute outgoing connections within a 120 degree arc
+            const angleRange = Math.PI * 2 / 3;
+            sourceAngleOffset = (sourceIndex / (sourceCount - 1) - 0.5) * angleRange;
+        }
+
+        if (targetCount > 1) {
+            // Distribute incoming connections within a 120 degree arc
+            const angleRange = Math.PI * 2 / 3;
+            targetAngleOffset = (targetIndex / (targetCount - 1) - 0.5) * angleRange;
+        }
+
+        // Apply rotation to distribution vectors
+        const sourceOffsetVector = new THREE.Vector3();
+        const targetOffsetVector = new THREE.Vector3();
+
+        if (this.viewMode === '2d') {
+            // 2D offset calculation - rotate in XY plane
+            const sourceRotMatrix = new THREE.Matrix4().makeRotationZ(sourceAngleOffset);
+            const targetRotMatrix = new THREE.Matrix4().makeRotationZ(targetAngleOffset);
+
+            // CORRECT DIRECTION: We negate dirVector for targetOffsetVector and use regular dirVector for sourceOffsetVector
+            // This ensures the arrow points FROM dependency TO dependent
+            sourceOffsetVector.copy(dirVector).applyMatrix4(sourceRotMatrix);
+            targetOffsetVector.copy(dirVector.clone().negate()).applyMatrix4(targetRotMatrix);
+        } else {
+            // 3D offset calculation - more complex rotation
+            const sourceRotAxis = new THREE.Vector3(0, 0, 1); // Z axis for 3D rotation
+            const targetRotAxis = new THREE.Vector3(0, 0, 1);
+
+            // CORRECT DIRECTION: Same as 2D case
+            sourceOffsetVector.copy(dirVector).applyAxisAngle(sourceRotAxis, sourceAngleOffset);
+            targetOffsetVector.copy(dirVector.clone().negate()).applyAxisAngle(targetRotAxis, targetAngleOffset);
+        }
+
+        // Calculate actual surface points
+        const start = sourcePos.clone().add(sourceOffsetVector.multiplyScalar(sourceRadius * 1.02)); // 1.02 to start slightly outside
+        const end = targetPos.clone().add(targetOffsetVector.multiplyScalar(targetRadius * 1.02)); // 1.02 to end slightly outside
+
+        return { start, end };
+    }
     // Create curved path between nodes
     createCurvedLinePath(start, end) {
         // Create a curved line between points - different for 2D and 3D
         if (this.viewMode === '2d') {
-            // In 2D mode, create a simple curved line in the xy plane
+            // In 2D mode, create a more elegant curved line in the xy plane
             const midPoint = new THREE.Vector3(
                 (start.x + end.x) / 2,
                 (start.y + end.y) / 2,
@@ -511,22 +746,25 @@ createLinks() {
             const dx = end.x - start.x;
             const dy = end.y - start.y;
             const distance = Math.sqrt(dx * dx + dy * dy);
-            const curveHeight = distance * 0.1;
+
+            // Adaptive curve height - smaller curves for shorter distances
+            // This creates more visually pleasing curves that don't overlap as much
+            const curveHeight = Math.min(distance * 0.15, 15);
 
             // Create perpendicular offset
             const norm = new THREE.Vector3(-dy, dx, 0).normalize();
             midPoint.add(norm.multiplyScalar(curveHeight));
 
-            // Create quadratic bezier curve
+            // Create quadratic bezier curve with more points for smoother curves
             const curve = new THREE.QuadraticBezierCurve3(
                 new THREE.Vector3(start.x, start.y, 0),
                 midPoint,
                 new THREE.Vector3(end.x, end.y, 0)
             );
 
-            return curve.getPoints(20);
+            return curve.getPoints(25); // More points for smoother curve
         } else {
-            // In 3D mode, create a curved line in 3D space
+            // In 3D mode, create an elegant curved line in 3D space
             const midPoint = new THREE.Vector3(
                 (start.x + end.x) / 2,
                 (start.y + end.y) / 2,
@@ -535,7 +773,8 @@ createLinks() {
 
             // Add a slight offset to create a curve
             const distance = start.distanceTo(end);
-            const curveHeight = distance * 0.05;
+            // Adaptive curve height
+            const curveHeight = Math.min(distance * 0.1, 20);
 
             // Direction perpendicular to the line
             const dir = new THREE.Vector3().subVectors(end, start);
@@ -543,14 +782,14 @@ createLinks() {
 
             midPoint.add(norm.multiplyScalar(curveHeight));
 
-            // Create quadratic bezier curve
+            // Create quadratic bezier curve with more points for smoother lines
             const curve = new THREE.QuadraticBezierCurve3(
                 new THREE.Vector3(start.x, start.y, start.z),
                 midPoint,
                 new THREE.Vector3(end.x, end.y, end.z)
             );
 
-            return curve.getPoints(20);
+            return curve.getPoints(25); // More points for smoother curve
         }
     }
 
@@ -651,13 +890,15 @@ createLinks() {
                 this.controls.dispose();
             }
 
-            // Create new controls for 2D mode
+            // Create new controls specifically configured for smooth 2D panning
             this.controls = new TrackballControls(this.camera, this.renderer.domElement);
-            this.controls.rotateSpeed = 2.0;
+            this.controls.rotateSpeed = 0; // Disable rotation completely
             this.controls.zoomSpeed = 1.2;
-            this.controls.panSpeed = 0.8;
-            this.controls.noRotate = true; // Disable rotation in 2D
+            this.controls.panSpeed = 1.5; // Increase pan speed for better response
+            this.controls.noRotate = true; // Disable rotation
             this.controls.staticMoving = true;
+            this.controls.noPan = false; // Explicitly enable panning
+            this.controls.enabled = true; // Make sure controls are enabled
         } else {
             // Switch to perspective camera for 3D
             this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
@@ -684,6 +925,7 @@ createLinks() {
     updateViewModeControls() {
         const view2d = document.getElementById('view-2d');
         const view3d = document.getElementById('view-3d');
+        const connectionStyleToggle = document.getElementById('connection-style-toggle');
 
         if (view2d && view3d) {
             if (this.viewMode === '2d') {
@@ -693,6 +935,11 @@ createLinks() {
                 view2d.checked = false;
                 view3d.checked = true;
             }
+        }
+
+        // Maintain connection style selection
+        if (connectionStyleToggle) {
+            connectionStyleToggle.value = this.connectionStyle;
         }
     }
 
@@ -756,8 +1003,9 @@ createLinks() {
                     ? Math.sqrt(dx * dx + dy * dy) || 1
                     : Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
 
-                // Repulsion force (inverse square law)
-                const force = repulsionForce / (distance * distance);
+                // Enhanced repulsion formula to create better spacing
+                // More repulsion for closer nodes to prevent overlapping
+                const force = repulsionForce / (Math.pow(distance, 1.8) + 0.1);
 
                 forceX += dx / distance * force;
                 forceY += dy / distance * force;
@@ -1063,21 +1311,37 @@ createLinks() {
         return this.dependents[nodeId] ? this.dependents[nodeId].length : 0;
     }
 
-    // Highlight connections for a node
     highlightConnections(nodeId) {
         // Reset previous highlights
         this.resetHighlights();
 
         // Highlight links connected to this node
         this.linkObjects.forEach(link => {
-            if (link.userData.source === nodeId || link.userData.target === nodeId) {
+            // Check against both visual direction and data relationship
+            if (link.userData.source === nodeId || link.userData.target === nodeId ||
+                link.userData.dataSource === nodeId || link.userData.dataTarget === nodeId) {
+
                 link.material.color.setHex(0x6366f1); // Primary color
                 link.material.opacity = 0.8;
 
-                // Highlight connected node
-                const connectedNodeId = link.userData.source === nodeId ? link.userData.target : link.userData.source;
-                const connectedNode = this.nodeObjects[connectedNodeId];
+                // Determine which node is connected
+                let connectedNodeId;
 
+                // If nodeId matches the visual source or target, use the opposite
+                if (link.userData.source === nodeId) {
+                    connectedNodeId = link.userData.target;
+                } else if (link.userData.target === nodeId) {
+                    connectedNodeId = link.userData.source;
+                }
+                // Otherwise use the data relationship
+                else if (link.userData.dataSource === nodeId) {
+                    connectedNodeId = link.userData.dataTarget;
+                } else if (link.userData.dataTarget === nodeId) {
+                    connectedNodeId = link.userData.dataSource;
+                }
+
+                // Highlight the connected node
+                const connectedNode = this.nodeObjects[connectedNodeId];
                 if (connectedNode) {
                     connectedNode.material.emissive.setHex(0x333333);
                 }
@@ -1310,25 +1574,43 @@ createLinks() {
 
             console.log(`Showing ${nodesToShow.length} nodes with dependency mode: ${dependencyMode}`);
         } else if (filenameFilter) {
-            // Special handling for filename filter to show connections
+            // Find all nodes that match the filename filter
             const matchedNodes = Object.values(this.nodes).filter(node =>
                 node.name.toLowerCase().includes(filenameFilter)
             );
 
+            console.log(`Found ${matchedNodes.length} nodes matching "${filenameFilter}"`);
+
             // Find all connected nodes (both dependencies and dependents)
             const connectedNodeIds = new Set();
             matchedNodes.forEach(node => {
-                // Add direct dependencies
-                (this.dependencies[node.id] || []).forEach(depId => connectedNodeIds.add(depId));
-
-                // Add dependents
-                (this.dependents[node.id] || []).forEach(dependentId => connectedNodeIds.add(dependentId));
-
-                // Always include the matched nodes
+                // Always include the matched node
                 connectedNodeIds.add(node.id);
+
+                console.log(`Processing node: ${node.name} (${node.id})`);
+
+                // Add direct dependencies (what this node imports)
+                if (this.dependencies[node.id]) {
+                    console.log(`  Dependencies (imports): ${this.dependencies[node.id].length}`);
+                    this.dependencies[node.id].forEach(depId => {
+                        connectedNodeIds.add(depId);
+                        console.log(`    - ${depId}`);
+                    });
+                }
+
+                // Add direct dependents (what imports this node)
+                if (this.dependents[node.id]) {
+                    console.log(`  Dependents (imported by): ${this.dependents[node.id].length}`);
+                    this.dependents[node.id].forEach(depId => {
+                        connectedNodeIds.add(depId);
+                        console.log(`    - ${depId}`);
+                    });
+                }
             });
 
-            // Visibility based on connected nodes
+            console.log(`Showing ${connectedNodeIds.size} total connected nodes`);
+
+            // Update visibility based on connected nodes
             Object.values(this.nodes).forEach(node => {
                 node.visible = connectedNodeIds.has(node.id);
             });
@@ -1393,5 +1675,220 @@ createLinks() {
         setTimeout(() => {
             this.tooltip.classList.remove('visible');
         }, duration);
+    }
+
+    // Debug method to analyze and log dependency relationships
+    debugDependencies(nodeName) {
+        console.log(`----- DEPENDENCY DEBUG: ${nodeName || 'All Nodes'} -----`);
+
+        // Filter for specific node if name provided
+        const nodesToAnalyze = nodeName
+            ? Object.values(this.nodes).filter(n => n.name.toLowerCase().includes(nodeName.toLowerCase()))
+            : Object.values(this.nodes);
+
+        console.log(`Analyzing ${nodesToAnalyze.length} nodes...`);
+
+        nodesToAnalyze.forEach(node => {
+            console.log(`\nNode: ${node.name} (${node.id})`);
+
+            // What this node imports
+            const dependencies = this.dependencies[node.id] || [];
+            console.log(`Imports (${dependencies.length}):`);
+            dependencies.forEach(depId => {
+                const depNode = this.nodes[depId];
+                console.log(` - ${depNode ? depNode.name : depId}`);
+            });
+
+            // What imports this node
+            const dependents = this.dependents[node.id] || [];
+            console.log(`Imported by (${dependents.length}):`);
+            dependents.forEach(depId => {
+                const depNode = this.nodes[depId];
+                console.log(` - ${depNode ? depNode.name : depId}`);
+            });
+
+            // Check if this node is visible in the current view
+            console.log(`Visible: ${node.visible !== false ? 'Yes' : 'No'}`);
+        });
+
+        console.log(`----- END DEBUG -----`);
+
+        // Also add a helpful message in the UI
+        this.showTooltip('Dependency debug info logged to console', {
+            x: window.innerWidth / 2,
+            y: window.innerHeight / 2
+        }, 3000);
+    }
+
+    // Add method to setup debug button
+    setupDebugButton() {
+        // Create a debug section in the sidebar
+        const sidebarContent = document.querySelector('.sidebar-content');
+        if (!sidebarContent) return;
+
+        const debugSection = document.createElement('div');
+        debugSection.className = 'sidebar-section';
+        debugSection.innerHTML = `
+        <h3>Debug Tools</h3>
+        <div class="form-group">
+            <input type="text" id="debug-node-name" class="form-control" placeholder="Node name (optional)">
+        </div>
+        <div class="form-group">
+            <button id="debug-dependencies-btn" class="btn btn-outline btn-block">
+                Debug Dependencies
+            </button>
+        </div>
+    `;
+
+        sidebarContent.appendChild(debugSection);
+
+        // Add event listener
+        const debugBtn = document.getElementById('debug-dependencies-btn');
+        if (debugBtn) {
+            debugBtn.addEventListener('click', () => {
+                const nodeName = document.getElementById('debug-node-name')?.value || '';
+                this.debugDependencies(nodeName);
+            });
+        }
+    }
+
+    // Method to set up search functionality
+    setupSearchFunctionality() {
+        const searchInput = document.getElementById('node-search');
+        const searchButton = document.getElementById('search-button');
+
+        if (!searchInput || !searchButton) return;
+
+        // Search when Enter key is pressed
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                this.searchAndHighlightNode(searchInput.value);
+            }
+        });
+
+        // Search when button is clicked
+        searchButton.addEventListener('click', () => {
+            this.searchAndHighlightNode(searchInput.value);
+        });
+
+        // Clear highlighted nodes when input is cleared
+        searchInput.addEventListener('input', (e) => {
+            if (e.target.value.trim() === '') {
+                this.clearSearchHighlights();
+            }
+        });
+    }
+
+    // Method to search for and highlight nodes
+    searchAndHighlightNode(searchTerm) {
+        if (!searchTerm || searchTerm.trim() === '') {
+            this.clearSearchHighlights();
+            return;
+        }
+
+        // First, clear any existing highlights
+        this.clearSearchHighlights();
+
+        // Keep track of found nodes
+        const foundNodeIds = [];
+        searchTerm = searchTerm.toLowerCase();
+
+        // Find matching nodes
+        Object.values(this.nodes).forEach(node => {
+            if ((node.visible === undefined || node.visible) &&
+                (node.name.toLowerCase().includes(searchTerm) ||
+                    node.path.toLowerCase().includes(searchTerm))) {
+                foundNodeIds.push(node.id);
+            }
+        });
+
+        // Highlight the found nodes
+        foundNodeIds.forEach(nodeId => {
+            const nodeObj = this.nodeObjects[nodeId];
+            if (nodeObj) {
+                // Set a special material for highlighted nodes
+                const originalMaterial = nodeObj.material;
+                const highlightMaterial = originalMaterial.clone();
+                highlightMaterial.emissive.setHex(0x6366F1); // Primary color
+                highlightMaterial.emissiveIntensity = 0.7;
+
+                // Store original material for later restoration
+                nodeObj.userData.originalMaterial = originalMaterial;
+                nodeObj.material = highlightMaterial;
+
+                // Add to tracked highlights
+                this.searchHighlightedNodes.push(nodeId);
+
+                // Center the view on the first found node
+                if (this.searchHighlightedNodes.length === 1) {
+                    this.centerCameraOnNode(nodeObj);
+                }
+            }
+        });
+
+        // Show count in tooltip
+        const count = foundNodeIds.length;
+        this.showTooltip(`Found ${count} node${count !== 1 ? 's' : ''} matching "${searchTerm}"`, {
+            x: window.innerWidth / 2,
+            y: window.innerHeight / 2
+        }, 2000);
+
+        // If nothing found, show a different message
+        if (count === 0) {
+            this.showTooltip(`No nodes found matching "${searchTerm}"`, {
+                x: window.innerWidth / 2,
+                y: window.innerHeight / 2
+            }, 2000);
+        }
+    }
+
+    // Method to clear search highlights
+    clearSearchHighlights() {
+        // Restore original materials for all highlighted nodes
+        this.searchHighlightedNodes.forEach(nodeId => {
+            const nodeObj = this.nodeObjects[nodeId];
+            if (nodeObj && nodeObj.userData.originalMaterial) {
+                nodeObj.material = nodeObj.userData.originalMaterial;
+                delete nodeObj.userData.originalMaterial;
+            }
+        });
+
+        // Clear the tracking array
+        this.searchHighlightedNodes = [];
+    }
+
+    // Method to center camera on a specific node
+    centerCameraOnNode(nodeObj) {
+        // Get current camera position
+        const currentPos = this.camera.position.clone();
+
+        // Calculate target position - keep Z the same but focus on the node's X, Y
+        const targetPos = nodeObj.position.clone();
+        targetPos.z = currentPos.z; // Keep the same distance
+
+        // Store animation start values and time
+        const startTime = Date.now();
+        const duration = 800; // ms
+
+        // Define animation function
+        const animateCamera = () => {
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+
+            // Smooth easing function
+            const ease = progress < 0.5 ? 4 * progress * progress * progress : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+
+            // Interpolate position
+            const newPos = currentPos.clone().lerp(targetPos, ease);
+            this.camera.position.copy(newPos);
+
+            // Continue animation if not finished
+            if (progress < 1) {
+                requestAnimationFrame(animateCamera);
+            }
+        };
+
+        // Start animation
+        animateCamera();
     }
 }
