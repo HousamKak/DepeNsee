@@ -24,7 +24,6 @@ export class DependencyVisualizer {
         this.labelSprites = [];
         this.searchHighlightedNodes = [];
         this.showLabels = false;
-        this.minConnections = 0;
         this.tooltip = this.createTooltip();
         this.viewMode = '2d'; // Default to 2D mode
         this.connectionStyle = 'arrow'; // Default to arrow style
@@ -145,6 +144,9 @@ export class DependencyVisualizer {
     setupDirectedToggle() {
         const directedToggle = document.getElementById('directed-toggle');
         if (directedToggle) {
+            // Set checkbox to checked state since directed is now true by default
+            directedToggle.checked = this.directed;
+
             directedToggle.addEventListener('change', (e) => {
                 this.directed = e.target.checked;
                 // Rebuild the graph to update links with/without arrows.
@@ -217,18 +219,6 @@ export class DependencyVisualizer {
         const libraryFilter = document.getElementById('library-filter');
         if (libraryFilter) {
             libraryFilter.addEventListener('change', this.applyFilters.bind(this));
-        }
-
-        // Minimum connections slider
-        const minConnectionsSlider = document.getElementById('min-connections');
-        if (minConnectionsSlider) {
-            minConnectionsSlider.addEventListener('input', (e) => {
-                this.minConnections = parseInt(e.target.value);
-                const valueDisplay = document.getElementById('min-connections-value');
-                if (valueDisplay) {
-                    valueDisplay.textContent = this.minConnections;
-                }
-            });
         }
 
         // Apply filters button for advanced filtering
@@ -311,7 +301,7 @@ export class DependencyVisualizer {
     initThree() {
         // Create scene
         this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color(0x0f172a); // Match sidebar background
+        this.scene.background = new THREE.Color(0x0f172a);
 
         // Create camera based on view mode
         if (this.viewMode === '2d') {
@@ -340,26 +330,85 @@ export class DependencyVisualizer {
         this.renderer.setPixelRatio(window.devicePixelRatio);
         document.getElementById('visualization-container').appendChild(this.renderer.domElement);
 
-        // Create controls based on view mode
+        // Create controls
         this.controls = new TrackballControls(this.camera, this.renderer.domElement);
-        this.controls.rotateSpeed = 1.5;
-        this.controls.zoomSpeed = 1.2;
-        this.controls.panSpeed = 0.8;
-        this.controls.keys = ['KeyA', 'KeyS', 'KeyD'];
 
-        // Disable rotation in 2D mode
+        // Setup basic controls properties
         if (this.viewMode === '2d') {
-            this.controls.rotateSpeed = 0; // Disable rotation completely
+            // 2D mode - disable rotation
+            this.controls.rotateSpeed = 0;
             this.controls.zoomSpeed = 1.2;
-            this.controls.panSpeed = 1.5; // Increase pan speed for better response
-            this.controls.noRotate = true; // Disable rotation
+            this.controls.panSpeed = 3.0;
+            this.controls.noRotate = true;
+            this.controls.noPan = false;
             this.controls.staticMoving = true;
-            this.controls.noPan = false; // Explicitly enable panning
-            this.controls.enabled = true; // Make sure controls are enabled
+            this.controls.dynamicDampingFactor = 0.3;
+        } else {
+            // 3D mode
+            this.controls.rotateSpeed = 1.5;
+            this.controls.zoomSpeed = 1.2;
+            this.controls.panSpeed = 2.0;
+            this.controls.noRotate = false;
+            this.controls.noPan = false;
         }
+
+        // Since the TrackballControls button mapping is complicated,
+        // we'll replace its mousedown handling with our own custom solution
+        this.setupCustomMouseControls();
 
         // Add lights for better rendering
         this.addLights();
+    }
+    // Setup custom mouse controls by overriding TrackballControls' event handling
+    setupCustomMouseControls() {
+        if (!this.controls || !this.renderer) return;
+
+        // Store reference to controls for use in event handlers
+        const controls = this.controls;
+        const viewMode = this.viewMode;
+
+        // Remove TrackballControls' default mouse listeners
+        this.renderer.domElement.removeEventListener('mousedown', controls.mousedown);
+        this.renderer.domElement.removeEventListener('mousemove', controls.mousemove);
+        this.renderer.domElement.removeEventListener('mouseup', controls.mouseup);
+
+        // Custom mousedown handler with our desired mapping
+        const customMouseDown = (event) => {
+            if (event.button === 0) {
+                // Left mouse button
+                if (viewMode === '2d') {
+                    // In 2D mode, left button pans
+                    controls.mouseButtons.LEFT = THREE.MOUSE.PAN;
+                    controls.state = controls.STATE.PAN;
+                } else {
+                    // In 3D mode, left button rotates
+                    controls.mouseButtons.LEFT = THREE.MOUSE.ROTATE;
+                    controls.state = controls.STATE.ROTATE;
+                }
+            } else if (event.button === 1) {
+                // Middle mouse button always pans
+                controls.mouseButtons.MIDDLE = THREE.MOUSE.PAN;
+                controls.state = controls.STATE.PAN;
+            }
+
+            // Call original handling for movement tracking
+            if (controls.enabled === false) return;
+
+            event.preventDefault();
+            event.stopPropagation();
+
+            // Set initial position for tracking
+            controls.handleMouseDownRotate(event);
+            controls.handleMouseDownPan(event);
+
+            // Set document event listeners to track movement and mouse up
+            document.addEventListener('mousemove', controls.mousemove, false);
+            document.addEventListener('mouseup', controls.mouseup, false);
+        };
+
+        // Replace the mousedown handler
+        controls.mousedown = customMouseDown;
+        this.renderer.domElement.addEventListener('mousedown', customMouseDown, false);
     }
 
     // Add scene lighting
@@ -437,7 +486,6 @@ export class DependencyVisualizer {
         // Create node objects
         Object.values(this.nodes).forEach(node => {
             if (!node.visible && node.visible !== undefined) return;
-            if (node.connections < this.minConnections) return;
 
             // Determine color based on file type
             let color;
@@ -493,7 +541,6 @@ export class DependencyVisualizer {
             const targetNode = this.nodes[link.target];
 
             if (!sourceNode || !targetNode) return;
-            if (sourceNode.connections < this.minConnections || targetNode.connections < this.minConnections) return;
             if ((!sourceNode.visible && sourceNode.visible !== undefined) ||
                 (!targetNode.visible && targetNode.visible !== undefined)) return;
 
@@ -514,7 +561,6 @@ export class DependencyVisualizer {
             const targetNode = this.nodes[link.target];
 
             if (!sourceNode || !targetNode) return;
-            if (sourceNode.connections < this.minConnections || targetNode.connections < this.minConnections) return;
             if ((!sourceNode.visible && sourceNode.visible !== undefined) ||
                 (!targetNode.visible && targetNode.visible !== undefined)) return;
 
@@ -743,35 +789,67 @@ export class DependencyVisualizer {
 
     // Create text label for a node
     createLabel(node) {
+        // Get device pixel ratio for sharper text
+        const pixelRatio = window.devicePixelRatio || 1;
+
         const canvas = document.createElement('canvas');
         const context = canvas.getContext('2d');
-        context.font = '24px Inter, sans-serif';
 
-        // Get text width
-        const textWidth = context.measureText(node.name).width;
+        // Set font first before measuring
+        const fontSize = 12;
+        context.font = `${fontSize}px Inter, Arial, sans-serif`;
 
-        // Set canvas size
-        canvas.width = textWidth + 20;
-        canvas.height = 40;
+        // Measure text with the correct font
+        const textMetrics = context.measureText(node.name);
+        const textWidth = textMetrics.width;
 
-        // Draw background with rounded corners
+        // Add more generous padding (20px total instead of 10px)
+        const padding = 10;
+        const canvasWidth = Math.ceil(textWidth + padding * 2);
+        const canvasHeight = 20;
+
+        // Set canvas size with high resolution for sharp text
+        canvas.width = canvasWidth * pixelRatio;
+        canvas.height = canvasHeight * pixelRatio;
+
+        // Scale context to account for pixel ratio
+        context.scale(pixelRatio, pixelRatio);
+
+        // Clear and set the background
         context.fillStyle = 'rgba(30, 41, 59, 0.85)';
         context.beginPath();
-        context.roundRect(0, 0, canvas.width, canvas.height, 8);
+        context.roundRect(0, 0, canvasWidth, canvasHeight, 4);
         context.fill();
 
-        // Draw text
-        context.font = '24px Inter, sans-serif';
+        // Set font again after canvas resize (canvas operations reset the context)
+        context.font = `${fontSize}px Inter, Arial, sans-serif`;
+        context.textBaseline = 'middle';
+        context.textAlign = 'left';
+
+        // Enable text anti-aliasing
+        context.imageSmoothingEnabled = true;
+        context.imageSmoothingQuality = 'high';
+
+        // Draw text with better positioning
         context.fillStyle = '#f8fafc';
-        context.fillText(node.name, 10, 28);
+        context.fillText(node.name, padding, canvasHeight / 2);
 
         // Create sprite
         const texture = new THREE.CanvasTexture(canvas);
+        // Use better filtering for sharper text
+        texture.minFilter = THREE.LinearFilter;
+        texture.magFilter = THREE.LinearFilter;
+
         const material = new THREE.SpriteMaterial({ map: texture });
         const sprite = new THREE.Sprite(material);
 
-        sprite.position.set(node.x, node.y + 15, node.z);
-        sprite.scale.set(canvas.width / 2, canvas.height / 2, 1);
+        // Position relative to node size
+        sprite.position.set(node.x, node.y + node.size * 1.2, node.z);
+
+        // Scale sprite to maintain proper text size
+        const spriteScale = 0.25; // Smaller scale factor for better resolution
+        sprite.scale.set((canvasWidth / canvasHeight) * spriteScale * canvasHeight, spriteScale * canvasHeight, 1);
+
         sprite.visible = this.showLabels;
 
         this.scene.add(sprite);
@@ -814,7 +892,7 @@ export class DependencyVisualizer {
         const currentPosition = this.camera ? this.camera.position.clone() : new THREE.Vector3(0, 0, 1000);
 
         if (this.viewMode === '2d') {
-            // Switch to orthographic camera for 2D
+            // Setup 2D camera
             const width = window.innerWidth;
             const height = window.innerHeight;
             const aspectRatio = width / height;
@@ -838,20 +916,18 @@ export class DependencyVisualizer {
                 this.controls.dispose();
             }
 
-            // Create new controls specifically configured for smooth 2D panning
+            // Create new controls
             this.controls = new TrackballControls(this.camera, this.renderer.domElement);
-            this.controls.rotateSpeed = 0; // Disable rotation completely
+            this.controls.rotateSpeed = 0;
             this.controls.zoomSpeed = 1.2;
-            this.controls.panSpeed = 1.5; // Increase pan speed for better response
-            this.controls.noRotate = true; // Disable rotation
+            this.controls.panSpeed = 3.0;
+            this.controls.noRotate = true;
+            this.controls.noPan = false;
             this.controls.staticMoving = true;
-            this.controls.noPan = false; // Explicitly enable panning
-            this.controls.enabled = true; // Make sure controls are enabled
+            this.controls.dynamicDampingFactor = 0.3;
         } else {
-            // Switch to perspective camera for 3D
+            // Setup 3D camera
             this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
-
-            // Preserve camera position
             this.camera.position.copy(currentPosition);
             this.camera.lookAt(0, 0, 0);
 
@@ -860,12 +936,46 @@ export class DependencyVisualizer {
                 this.controls.dispose();
             }
 
-            // Create new controls for 3D mode
+            // Create new controls
             this.controls = new TrackballControls(this.camera, this.renderer.domElement);
             this.controls.rotateSpeed = 1.5;
             this.controls.zoomSpeed = 1.2;
-            this.controls.panSpeed = 0.8;
-            this.controls.keys = ['KeyA', 'KeyS', 'KeyD'];
+            this.controls.panSpeed = 2.0;
+            this.controls.noRotate = false;
+            this.controls.noPan = false;
+        }
+
+        // Apply our custom mouse control setup
+        this.setupCustomMouseControls();
+    }
+
+    changeMouseControls(useCustomControls = true) {
+        if (!this.controls) return;
+
+        if (useCustomControls) {
+            // Use the custom control scheme requested by the user
+            if (this.viewMode === '3d') {
+                // 3D mode: left for rotate, middle for pan
+                this.controls.mouseButtons = {
+                    LEFT: 0,   // ROTATE
+                    MIDDLE: 2, // PAN
+                    RIGHT: -1  // Disabled
+                };
+            } else {
+                // 2D mode: left and middle for pan
+                this.controls.mouseButtons = {
+                    LEFT: 2,   // PAN
+                    MIDDLE: 2, // PAN
+                    RIGHT: -1  // Disabled
+                };
+            }
+        } else {
+            // Default TrackballControls behavior
+            this.controls.mouseButtons = {
+                LEFT: 0,   // ROTATE
+                MIDDLE: 1, // ZOOM
+                RIGHT: 2   // PAN
+            };
         }
     }
 
@@ -890,6 +1000,7 @@ export class DependencyVisualizer {
             connectionStyleToggle.value = this.connectionStyle;
         }
     }
+
 
     // Position nodes using force-directed layout
     positionNodes() {
@@ -926,6 +1037,65 @@ export class DependencyVisualizer {
 
         // Center the graph
         this.centerGraph(nodeArray);
+    }
+
+    // Add an alternative approach using a direct event listener approach (in case the above doesn't work)
+    setupDirectMouseControls() {
+        if (!this.controls || !this.renderer) return;
+
+        const domElement = this.renderer.domElement;
+        const controls = this.controls;
+        const viewMode = this.viewMode;
+
+        // Create a more direct approach by adding our own listener that 
+        // manually handles the mouse events and calls TrackballControls methods
+        domElement.addEventListener('mousedown', (event) => {
+            if (!controls.enabled) return;
+
+            event.preventDefault();
+
+            // Determine what to do based on which button was pressed
+            if (event.button === 0) { // Left button
+                if (viewMode === '2d') {
+                    // Execute pan directly in 2D mode
+                    controls.state = controls.STATE.PAN;
+                    controls.handleMouseDownPan(event);
+                } else {
+                    // Execute rotate in 3D mode
+                    controls.state = controls.STATE.ROTATE;
+                    controls.handleMouseDownRotate(event);
+                }
+            } else if (event.button === 1) { // Middle button
+                // Always pan with middle button
+                controls.state = controls.STATE.PAN;
+                controls.handleMouseDownPan(event);
+            }
+
+            // Add document listeners to follow through with the operation
+            document.addEventListener('mousemove', onMouseMove, false);
+            document.addEventListener('mouseup', onMouseUp, false);
+        }, false);
+
+        const onMouseMove = (event) => {
+            if (!controls.enabled) return;
+
+            event.preventDefault();
+
+            if (controls.state === controls.STATE.ROTATE) {
+                controls.handleMouseMoveRotate(event);
+            } else if (controls.state === controls.STATE.PAN) {
+                controls.handleMouseMovePan(event);
+            }
+        };
+
+        const onMouseUp = () => {
+            if (!controls.enabled) return;
+
+            document.removeEventListener('mousemove', onMouseMove, false);
+            document.removeEventListener('mouseup', onMouseUp, false);
+
+            controls.state = controls.STATE.NONE;
+        };
     }
 
     // Calculate repulsion forces between nodes
@@ -1270,7 +1440,9 @@ export class DependencyVisualizer {
                 link.userData.dataSource === nodeId || link.userData.dataTarget === nodeId) {
 
                 link.material.color.setHex(0x6366f1); // Primary color
-                link.material.opacity = 0.8;
+                const currentOpacity = link.material.opacity;
+                const highlightFactor = 2.5; // Increase visibility but respect user setting
+                link.material.opacity = Math.min(currentOpacity * highlightFactor, 1.0);
 
                 // Determine which node is connected
                 let connectedNodeId;
@@ -1297,12 +1469,15 @@ export class DependencyVisualizer {
         });
     }
 
-    // Reset all highlights
+    // Update resetHighlights to restore user-defined opacity
     resetHighlights() {
+        // Get current user-defined opacity
+        const userOpacity = parseFloat(document.getElementById('link-opacity')?.value || 0.2);
+
         // Reset link highlights
         this.linkObjects.forEach(link => {
             link.material.color.setHex(0x94a3b8);
-            link.material.opacity = 0.2;
+            link.material.opacity = userOpacity; // Use user-defined opacity
         });
 
         // Reset node highlights
@@ -1459,11 +1634,6 @@ export class DependencyVisualizer {
 
         // First pass: find nodes that match basic filters
         Object.values(this.nodes).forEach(node => {
-            // Skip nodes with too few connections
-            if (node.connections < this.minConnections) {
-                node.visible = false;
-                return;
-            }
 
             let visible = true;
 
