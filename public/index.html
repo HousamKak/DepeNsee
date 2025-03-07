@@ -161,6 +161,13 @@
                             Directed Graph
                         </label>
                     </div>
+                    <div class="form-group">
+                        <label for="connection-style-toggle">Connection Style</label>
+                        <select id="connection-style-toggle" class="form-control">
+                            <option value="receptor">Receptor Style</option>
+                            <option value="arrow">Arrow Style</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div class="sidebar-section">
@@ -194,6 +201,18 @@
 
         <!-- Main Visualization Area -->
         <div class="visualization-container" id="visualization-container">
+            <div class="search-container">
+                <div class="search-box">
+                    <input type="text" id="node-search" placeholder="Search nodes..." />
+                    <button id="search-button" title="Search">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        </svg>
+                    </button>
+                </div>
+            </div>
             <!-- Legend -->
             <div class="legend">
                 <div class="legend-title">File Types</div>
