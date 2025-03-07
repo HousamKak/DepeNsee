@@ -8,7 +8,7 @@ import { buildDependencyData, getDependencyChain } from './utils.js';
 
 export class DependencyVisualizer {
     constructor() {
-        this.directed = false;
+        this.directed = true;
         this.scene = null;
         this.camera = null;
         this.renderer = null;
@@ -27,7 +27,7 @@ export class DependencyVisualizer {
         this.minConnections = 0;
         this.tooltip = this.createTooltip();
         this.viewMode = '2d'; // Default to 2D mode
-        this.connectionStyle = 'receptor'; // Default to receptor style ('receptor' or 'arrow')
+        this.connectionStyle = 'arrow'; // Default to arrow style
         this.initialized = false; // Flag to track initialization
         this.rawData = null; // Store raw data for filtering
 
@@ -168,13 +168,12 @@ export class DependencyVisualizer {
             const directedToggleElement = document.getElementById('directed-toggle');
             if (!directedToggleElement) return;
 
-            // Create the connection style toggle
+            // Create the connection style toggle with only arrow option
             const toggleContainer = document.createElement('div');
             toggleContainer.className = 'form-group';
             toggleContainer.innerHTML = `
                 <label for="connection-style-toggle">Connection Style</label>
                 <select id="connection-style-toggle" class="form-control">
-                    <option value="receptor">Receptor Style</option>
                     <option value="arrow">Arrow Style</option>
                 </select>
             `;
@@ -189,18 +188,13 @@ export class DependencyVisualizer {
             connectionStyleToggle = document.getElementById('connection-style-toggle');
         }
 
-        // Set up event listener
+        // Set up event listener (simplified since we only have one option)
         if (connectionStyleToggle) {
             connectionStyleToggle.addEventListener('change', (e) => {
                 this.connectionStyle = e.target.value;
-                // Rebuild the graph to update connection styles
+                // Keep this for future extensibility
                 this.clearGraph();
                 this.createGraph();
-                // Show a tooltip to confirm the change
-                this.showTooltip(`Connection style changed to ${this.connectionStyle}`, {
-                    x: window.innerWidth / 2,
-                    y: window.innerHeight / 2
-                }, 1500);
             });
         }
     }
@@ -482,7 +476,6 @@ export class DependencyVisualizer {
     // - dependencies[A] = [B, C] means "A imports/depends on B and C"
     // - So arrows should go from B→A and C→A (showing B and C are dependencies of A)
 
-    // 1. Update the createLinks method to reverse the way it draws connections
     createLinks() {
         // First, collect all connections per node to enable better distribution
         const nodeConnections = {};
@@ -586,85 +579,40 @@ export class DependencyVisualizer {
                 // Calculate the direction vector of the last segment
                 const dir = new THREE.Vector3().subVectors(pLast, pSecondLast).normalize();
 
-                if (this.connectionStyle === 'receptor') {
-                    // RECEPTOR STYLE
-                    const receptorSize = 2.5;
+                // ARROW STYLE only
+                const arrowLength = 5;
+                const arrowWidth = 2;
 
-                    const receptorGeometry = new THREE.CircleGeometry(receptorSize, 16);
-                    const receptorMaterial = new THREE.MeshBasicMaterial({
-                        color: 0x6366F1,
-                        transparent: true,
-                        opacity: 0.9,
-                        side: THREE.DoubleSide
-                    });
+                const tip = pLast.clone();
 
-                    const receptor = new THREE.Mesh(receptorGeometry, receptorMaterial);
+                const perpendicular = new THREE.Vector3(-dir.y, dir.x, 0).normalize().multiplyScalar(arrowWidth);
 
-                    // Position right at end point (which is already on the surface)
-                    receptor.position.copy(pLast);
+                const baseCenter = tip.clone().sub(dir.clone().multiplyScalar(arrowLength));
+                const baseLeft = baseCenter.clone().add(perpendicular);
+                const baseRight = baseCenter.clone().sub(perpendicular);
 
-                    // Rotation logic based on view mode
-                    if (this.viewMode === '3d') {
-                        receptor.lookAt(pSecondLast);
-                        receptor.rotateX(Math.PI / 2);
-                    } else {
-                        const angle = Math.atan2(dir.y, dir.x) - Math.PI / 2;
-                        receptor.rotation.z = angle;
-                    }
+                const arrowGeometry = new THREE.BufferGeometry();
+                const vertices = new Float32Array([
+                    tip.x, tip.y, tip.z,
+                    baseLeft.x, baseLeft.y, baseLeft.z,
+                    baseRight.x, baseRight.y, baseRight.z
+                ]);
 
-                    // Add a subtle glow effect
-                    const glowGeometry = new THREE.CircleGeometry(receptorSize * 1.8, 16);
-                    const glowMaterial = new THREE.MeshBasicMaterial({
-                        color: 0x6366F1,
-                        transparent: true,
-                        opacity: 0.3,
-                        side: THREE.DoubleSide
-                    });
+                arrowGeometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
 
-                    const glow = new THREE.Mesh(glowGeometry, glowMaterial);
-                    glow.position.copy(pLast);
+                const arrowMaterial = new THREE.MeshBasicMaterial({
+                    color: 0x6366F1,
+                    transparent: true,
+                    opacity: 0.9,
+                    side: THREE.DoubleSide
+                });
 
-                    // Apply same rotation as receptor
-                    glow.rotation.copy(receptor.rotation);
+                const arrowMesh = new THREE.Mesh(arrowGeometry, arrowMaterial);
 
-                    this.scene.add(receptor);
-                    this.scene.add(glow);
-                    this.linkObjects.push(receptor, glow);
-                } else {
-                    // ARROW STYLE
-                    const arrowLength = 5;
-                    const arrowWidth = 2;
-
-                    const tip = pLast.clone();
-
-                    const perpendicular = new THREE.Vector3(-dir.y, dir.x, 0).normalize().multiplyScalar(arrowWidth);
-
-                    const baseCenter = tip.clone().sub(dir.clone().multiplyScalar(arrowLength));
-                    const baseLeft = baseCenter.clone().add(perpendicular);
-                    const baseRight = baseCenter.clone().sub(perpendicular);
-
-                    const arrowGeometry = new THREE.BufferGeometry();
-                    const vertices = new Float32Array([
-                        tip.x, tip.y, tip.z,
-                        baseLeft.x, baseLeft.y, baseLeft.z,
-                        baseRight.x, baseRight.y, baseRight.z
-                    ]);
-
-                    arrowGeometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
-
-                    const arrowMaterial = new THREE.MeshBasicMaterial({
-                        color: 0x6366F1,
-                        transparent: true,
-                        opacity: 0.9,
-                        side: THREE.DoubleSide
-                    });
-
-                    const arrowMesh = new THREE.Mesh(arrowGeometry, arrowMaterial);
-
-                    this.scene.add(arrowMesh);
-                    this.linkObjects.push(arrowMesh);
-                }
+                this.scene.add(arrowMesh);
+                this.linkObjects.push(arrowMesh);
             }
+
         });
     }
 
