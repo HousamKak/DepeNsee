@@ -1,0 +1,1773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Dependency Visualizer</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔗</text></svg>">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- ThreeJS and related libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.9/dat.gui.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
+    <style>
+        :root {
+            --primary: #6366F1;
+            --primary-light: #818CF8;
+            --primary-dark: #4F46E5;
+            --secondary: #0EA5E9;
+            --dark: #1E293B;
+            --light: #F8FAFC;
+            --gray-100: #F1F5F9;
+            --gray-200: #E2E8F0;
+            --gray-300: #CBD5E1;
+            --gray-400: #94A3B8;
+            --gray-500: #64748B;
+            --gray-600: #475569;
+            --gray-700: #334155;
+            --gray-800: #1E293B;
+            --gray-900: #0F172A;
+            --success: #10B981;
+            --warning: #F59E0B;
+            --danger: #EF4444;
+            --border-radius: 8px;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            background-color: var(--gray-900);
+            color: var(--light);
+            overflow: hidden;
+            line-height: 1.5;
+        }
+
+        h1, h2, h3, h4, h5, h6 {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Improved Layout & Components */
+        .app-container {
+            display: flex;
+            height: 100vh;
+            position: relative;
+        }
+
+        .visualization-container {
+            flex: 1;
+            position: relative;
+            height: 100vh;
+        }
+
+        .sidebar {
+            width: 320px;
+            height: 100vh;
+            background-color: var(--gray-800);
+            box-shadow: var(--shadow-lg);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s ease;
+            overflow-y: auto;
+        }
+
+        .sidebar-collapsed {
+            transform: translateX(-100%);
+        }
+
+        .sidebar-header {
+            padding: 1.25rem;
+            border-bottom: 1px solid var(--gray-700);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .sidebar-header h2 {
+            font-size: 1.25rem;
+            color: var(--gray-100);
+        }
+
+        .sidebar-content {
+            padding: 1.25rem;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .sidebar-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .sidebar-section h3 {
+            font-size: 0.875rem;
+            color: var(--gray-400);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.75rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.875rem;
+            margin-bottom: 0.5rem;
+            color: var(--gray-300);
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.625rem;
+            border-radius: var(--border-radius);
+            border: 1px solid var(--gray-700);
+            background-color: var(--gray-800);
+            color: var(--light);
+            font-family: inherit;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25);
+        }
+
+        select.form-control {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394A3B8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.5rem center;
+            background-size: 1.25rem;
+            padding-right: 2rem;
+        }
+
+        .form-range {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 0.5rem;
+            border-radius: 1rem;
+            background-color: var(--gray-700);
+            margin-top: 0.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .form-range::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 1rem;
+            height: 1rem;
+            border-radius: 50%;
+            background-color: var(--primary);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .form-range::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            background-color: var(--primary-light);
+        }
+
+        .form-range-value {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            background-color: var(--gray-700);
+            border-radius: var(--border-radius);
+            font-size: 0.75rem;
+            margin-left: 0.5rem;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.625rem 1rem;
+            border-radius: var(--border-radius);
+            font-weight: 500;
+            font-size: 0.875rem;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+
+        .btn-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: var(--border-radius);
+            border: none;
+            background-color: transparent;
+            color: var(--gray-400);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-icon:hover {
+            background-color: var(--gray-700);
+            color: var(--gray-200);
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-dark);
+        }
+
+        .btn-secondary {
+            background-color: var(--gray-700);
+            color: var(--gray-200);
+        }
+
+        .btn-secondary:hover {
+            background-color: var(--gray-600);
+        }
+
+        .btn-outline {
+            background-color: transparent;
+            border: 1px solid var(--gray-600);
+            color: var(--gray-300);
+        }
+
+        .btn-outline:hover {
+            background-color: var(--gray-700);
+            color: var(--gray-100);
+        }
+
+        .btn-block {
+            display: block;
+            width: 100%;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .card {
+            background-color: var(--gray-800);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            margin-bottom: 1rem;
+            overflow: hidden;
+        }
+
+        .card-header {
+            padding: 1rem;
+            background-color: var(--gray-700);
+            border-bottom: 1px solid var(--gray-600);
+        }
+
+        .card-body {
+            padding: 1rem;
+        }
+
+        .toggle-sidebar {
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
+            z-index: 150;
+            border-radius: 50%;
+            width: 3rem;
+            height: 3rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: var(--gray-800);
+            color: var(--gray-200);
+            border: none;
+            box-shadow: var(--shadow-md);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .toggle-sidebar:hover {
+            background-color: var(--gray-700);
+        }
+
+        .toggle-sidebar svg {
+            width: 1.5rem;
+            height: 1.5rem;
+        }
+
+        .info-panel {
+            position: absolute;
+            bottom: 1rem;
+            right: 1rem;
+            background-color: var(--gray-800);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-lg);
+            max-width: 350px;
+            padding: 1rem;
+            z-index: 100;
+            transform: translateY(calc(100% + 1rem));
+            transition: transform 0.3s ease;
+            opacity: 0;
+        }
+
+        .info-panel.active {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .info-panel-header {
+            padding-bottom: 0.75rem;
+            margin-bottom: 0.75rem;
+            border-bottom: 1px solid var(--gray-700);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .info-panel-header h3 {
+            margin: 0;
+            font-size: 1rem;
+        }
+
+        .close-btn {
+            background: transparent;
+            border: none;
+            color: var(--gray-400);
+            cursor: pointer;
+            padding: 0.25rem;
+        }
+
+        .close-btn:hover {
+            color: var(--gray-200);
+        }
+
+        .info-item {
+            margin-bottom: 0.5rem;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .info-item-label {
+            font-size: 0.75rem;
+            color: var(--gray-400);
+        }
+
+        .info-item-value {
+            font-size: 0.875rem;
+            color: var(--gray-100);
+        }
+
+        .legend {
+            position: absolute;
+            bottom: 1rem;
+            left: 1rem;
+            background-color: var(--gray-800);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-lg);
+            padding: 1rem;
+            z-index: 100;
+        }
+
+        .legend-title {
+            margin-bottom: 0.75rem;
+            font-size: 0.875rem;
+            color: var(--gray-200);
+        }
+
+        .legend-items {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .legend-color {
+            width: 1rem;
+            height: 1rem;
+            border-radius: 0.25rem;
+        }
+
+        .legend-label {
+            font-size: 0.75rem;
+            color: var(--gray-300);
+        }
+
+        /* Onboarding Modal */
+        .modal-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.75);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        .modal {
+            background-color: var(--gray-800);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-lg);
+            max-width: 500px;
+            width: 90%;
+            overflow: hidden;
+        }
+
+        .modal-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--gray-700);
+            text-align: center;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            color: var(--gray-100);
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+        }
+
+        .modal-footer {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid var(--gray-700);
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+        }
+
+        .form-input-group {
+            position: relative;
+            margin-bottom: 1.5rem;
+        }
+
+        .form-input-group input {
+            padding-left: 2.5rem;
+        }
+
+        .form-input-icon {
+            position: absolute;
+            left: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--gray-500);
+        }
+
+        .modal-divider {
+            display: flex;
+            align-items: center;
+            margin: 1.5rem 0;
+            color: var(--gray-500);
+            font-size: 0.875rem;
+        }
+
+        .modal-divider::before,
+        .modal-divider::after {
+            content: "";
+            flex: 1;
+            height: 1px;
+            background-color: var(--gray-700);
+        }
+
+        .modal-divider::before {
+            margin-right: 1rem;
+        }
+
+        .modal-divider::after {
+            margin-left: 1rem;
+        }
+
+        /* Loading Spinner */
+        .loading-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(15, 23, 42, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .loading-spinner {
+            width: 3rem;
+            height: 3rem;
+            border-radius: 50%;
+            border: 3px solid var(--gray-600);
+            border-top-color: var(--primary);
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .loading-text {
+            margin-top: 1rem;
+            color: var(--gray-200);
+            font-size: 1rem;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+            border-radius: 9999px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .badge-primary {
+            background-color: rgba(99, 102, 241, 0.2);
+            color: var(--primary-light);
+        }
+
+        .badge-success {
+            background-color: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+        }
+
+        /* Tooltip */
+        .tooltip {
+            position: absolute;
+            background-color: var(--gray-800);
+            color: var(--gray-200);
+            padding: 0.5rem 0.75rem;
+            border-radius: var(--border-radius);
+            font-size: 0.75rem;
+            box-shadow: var(--shadow-md);
+            z-index: 200;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.15s ease;
+        }
+
+        .tooltip.visible {
+            opacity: 1;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Responsive Adjustments */
+        @media (max-width: 768px) {
+            .sidebar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 85%;
+                max-width: 320px;
+            }
+            
+            .info-panel, .legend {
+                max-width: calc(100% - 2rem);
+            }
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--gray-800);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--gray-600);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--gray-500);
+        }
+    </style>
+</head>
+<body>
+    <!-- Welcome Modal -->
+    <div id="welcome-modal" class="modal-container">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Project Dependency Visualizer</h2>
+            </div>
+            <div class="modal-body">
+                <p>Welcome to the 3D dependency visualization tool for JavaScript and TypeScript projects. Explore your project's structure and dependencies in an interactive 3D environment.</p>
+                
+                <div class="form-group" style="margin-top: 1.5rem;">
+                    <label for="project-path">Project Directory Path</label>
+                    <div class="form-input-group">
+                        <span class="form-input-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M3 6h18"></path>
+                                <path d="M3 12h18"></path>
+                                <path d="M3 18h18"></path>
+                            </svg>
+                        </span>
+                        <input type="text" id="project-path" class="form-control" placeholder="Enter project path" />
+                    </div>
+                </div>
+                
+                <div class="modal-divider">or</div>
+                
+                <div style="text-align: center;">
+                    <button id="demo-btn" class="btn btn-outline">
+                        Try with Demo Data
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="analyze-btn" class="btn btn-primary">Analyze Project</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Application Structure -->
+    <div class="app-container">
+        <!-- Sidebar Toggle Button -->
+        <button class="toggle-sidebar" id="toggle-sidebar" title="Toggle Sidebar">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 12h18M3 6h18M3 18h18"></path>
+            </svg>
+        </button>
+
+        <!-- Sidebar -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h2>Dependency Visualizer</h2>
+            </div>
+            <div class="sidebar-content">
+                <div class="sidebar-section">
+                    <h3>Filters</h3>
+                    <div class="form-group">
+                        <label for="filename-filter">Filename</label>
+                        <input type="text" id="filename-filter" class="form-control" placeholder="Filter by filename">
+                    </div>
+                    <div class="form-group">
+                        <label for="file-type-filter">File Type</label>
+                        <select id="file-type-filter" class="form-control">
+                            <option value="all">All File Types</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="library-filter">Library</label>
+                        <select id="library-filter" class="form-control">
+                            <option value="all">All Libraries</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="min-connections">
+                            Minimum Connections
+                            <span id="min-connections-value" class="form-range-value">0</span>
+                        </label>
+                        <input type="range" id="min-connections" class="form-range" min="0" max="20" value="0">
+                    </div>
+                </div>
+
+                <div class="sidebar-section">
+                    <h3>Visualization Controls</h3>
+                    <div class="btn-group" style="margin-bottom: 1rem;">
+                        <button id="reset-camera" class="btn btn-secondary">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.5rem;">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <polygon points="10 8 16 12 10 16 10 8"></polygon>
+                            </svg>
+                            Reset View
+                        </button>
+                        <button id="toggle-labels" class="btn btn-secondary">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.5rem;">
+                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                <line x1="3" y1="9" x2="21" y2="9"></line>
+                            </svg>
+                            Toggle Labels
+                        </button>
+                    </div>
+                    <div class="form-group">
+                        <label for="node-size">Node Size</label>
+                        <input type="range" id="node-size" class="form-range" min="1" max="20" value="5">
+                    </div>
+                    <div class="form-group">
+                        <label for="link-opacity">Link Opacity</label>
+                        <input type="range" id="link-opacity" class="form-range" min="0" max="1" step="0.1" value="0.2">
+                    </div>
+                </div>
+
+                <div class="sidebar-section">
+                    <h3>Project Information</h3>
+                    <div class="info-item">
+                        <span class="info-item-label">Total Files</span>
+                        <span class="info-item-value" id="total-files">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-item-label">Total Libraries</span>
+                        <span class="info-item-value" id="total-libraries">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-item-label">Total Dependencies</span>
+                        <span class="info-item-value" id="total-dependencies">-</span>
+                    </div>
+                </div>
+
+                <div class="sidebar-section">
+                    <h3>Help</h3>
+                    <ul style="padding-left: 1.25rem; font-size: 0.875rem; color: var(--gray-400);">
+                        <li>Rotate: Left-click + drag</li>
+                        <li>Pan: Right-click + drag</li>
+                        <li>Zoom: Scroll wheel</li>
+                        <li>View File Details: Hover over node</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Visualization Area -->
+        <div class="visualization-container" id="visualization-container">
+            <!-- Legend -->
+            <div class="legend">
+                <div class="legend-title">File Types</div>
+                <div class="legend-items">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #ff7700;"></div>
+                        <div class="legend-label">.ts files</div>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #00aaff;"></div>
+                        <div class="legend-label">.js files</div>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #ff00aa;"></div>
+                        <div class="legend-label">.tsx files</div>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #00ffaa;"></div>
+                        <div class="legend-label">.jsx files</div>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #aaaaaa;"></div>
+                        <div class="legend-label">Libraries</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Node Info Panel -->
+            <div class="info-panel" id="info-panel">
+                <div class="info-panel-header">
+                    <h3 id="info-panel-title">File Details</h3>
+                    <button class="close-btn" id="close-info-panel" title="Close Info Panel">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+                <div id="info-panel-content">
+                    <!-- Content will be dynamically inserted -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-container hidden" id="loading-container">
+        <div style="text-align: center;">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Analyzing project dependencies...</div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Import Three.js properly
+        import * as THREE from 'https://cdn.skypack.dev/three@0.128.0';
+        import { TrackballControls } from 'https://cdn.skypack.dev/three@0.128.0/examples/jsm/controls/TrackballControls.js';
+
+        // Dependency Visualizer Class
+        class DependencyVisualizer {
+            constructor() {
+                this.scene = null;
+                this.camera = null;
+                this.renderer = null;
+                this.controls = null;
+                this.nodes = {};
+                this.links = [];
+                this.nodeObjects = {};
+                this.linkObjects = [];
+                this.raycaster = new THREE.Raycaster();
+                this.mouse = new THREE.Vector2();
+                this.hoveredObject = null;
+                this.selectedObject = null;
+                this.labelSprites = [];
+                this.showLabels = false;
+                this.minConnections = 0;
+                this.tooltip = this.createTooltip();
+                
+                // Color mapping
+                this.colorMap = {
+                    '.ts': 0xff7700,   // Orange
+                    '.js': 0x00aaff,   // Blue
+                    '.tsx': 0xff00aa,  // Pink
+                    '.jsx': 0x00ffaa,  // Teal
+                    'library': 0xaaaaaa // Gray
+                };
+                
+                // DOM Elements
+                this.sidebar = document.getElementById('sidebar');
+                this.toggleSidebarBtn = document.getElementById('toggle-sidebar');
+                this.infoPanel = document.getElementById('info-panel');
+                this.closeInfoPanelBtn = document.getElementById('close-info-panel');
+                
+                // Setup event listeners
+                window.addEventListener('mousemove', this.onMouseMove.bind(this), false);
+                this.toggleSidebarBtn.addEventListener('click', this.toggleSidebar.bind(this));
+                this.closeInfoPanelBtn.addEventListener('click', () => this.infoPanel.classList.remove('active'));
+                
+                document.getElementById('reset-camera').addEventListener('click', this.resetCamera.bind(this));
+                document.getElementById('toggle-labels').addEventListener('click', this.toggleLabels.bind(this));
+                document.getElementById('file-type-filter').addEventListener('change', this.applyFilters.bind(this));
+                document.getElementById('library-filter').addEventListener('change', this.applyFilters.bind(this));
+                document.getElementById('filename-filter').addEventListener('input', this.applyFilters.bind(this));
+                
+                // Node size and link opacity controls
+                document.getElementById('node-size').addEventListener('input', (e) => {
+                    const size = parseFloat(e.target.value);
+                    Object.values(this.nodeObjects).forEach(node => {
+                        // Calculate size based on the original node size and the slider value
+                        const originalSize = this.nodes[node.userData.id].size;
+                        const scale = size / 5; // Normalize to the default value of 5
+                        node.scale.set(scale, scale, scale);
+                    });
+                });
+                
+                document.getElementById('link-opacity').addEventListener('input', (e) => {
+                    const opacity = parseFloat(e.target.value);
+                    this.linkObjects.forEach(link => {
+                        link.material.opacity = opacity;
+                    });
+                });
+                
+                const minConnectionsSlider = document.getElementById('min-connections');
+                minConnectionsSlider.addEventListener('input', (e) => {
+                    this.minConnections = parseInt(e.target.value);
+                    document.getElementById('min-connections-value').textContent = this.minConnections;
+                    this.applyFilters();
+                });
+                
+                // Window resize handler
+                window.addEventListener('resize', this.handleResize.bind(this), false);
+            }
+
+            async init(data) {
+                this.initThree();
+                
+                // Process the dependency data
+                this.processData(data);
+                
+                // Create the graph visualization
+                this.createGraph();
+                
+                // Start animation loop
+                this.animate();
+                
+                // Populate filter dropdowns
+                this.populateFilters(data);
+                
+                // Update project info
+                this.updateProjectInfo(data);
+                
+                // Add initial hover hint
+                this.showTooltip('Hover over nodes to see file details. Click and drag to rotate the view.', {
+                    x: window.innerWidth / 2,
+                    y: window.innerHeight / 2
+                }, 5000);
+            }
+
+            initThree() {
+                // Create scene
+                this.scene = new THREE.Scene();
+                this.scene.background = new THREE.Color(0x0f172a); // Match the sidebar background
+                
+                // Create camera
+                this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
+                this.camera.position.z = 1000;
+                
+                // Create renderer
+                this.renderer = new THREE.WebGLRenderer({ antialias: true });
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                this.renderer.setPixelRatio(window.devicePixelRatio);
+                document.getElementById('visualization-container').appendChild(this.renderer.domElement);
+                
+                // Create controls
+                this.controls = new TrackballControls(this.camera, this.renderer.domElement);
+                this.controls.rotateSpeed = 1.5;
+                this.controls.zoomSpeed = 1.2;
+                this.controls.panSpeed = 0.8;
+                this.controls.keys = ['KeyA', 'KeyS', 'KeyD'];
+                
+                // Add ambient light
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+                this.scene.add(ambientLight);
+                
+                // Add point light
+                const pointLight = new THREE.PointLight(0xffffff, 1);
+                pointLight.position.set(100, 100, 100);
+                this.scene.add(pointLight);
+                
+                // Add directional light for better shadows
+                const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+                dirLight.position.set(0, 200, 100);
+                this.scene.add(dirLight);
+            }
+
+            processData(data) {
+                // Create nodes
+                Object.keys(data.nodeInfo).forEach(path => {
+                    const nodeData = data.nodeInfo[path];
+                    this.nodes[path] = {
+                        id: path,
+                        name: nodeData.name,
+                        type: nodeData.type,
+                        size: Math.min(10, Math.max(3, Math.log(nodeData.size || 100) / Math.log(10))),
+                        path: nodeData.path,
+                        connections: 0
+                    };
+                });
+                
+                // Create links and count connections
+                Object.keys(data.dependencies).forEach(source => {
+                    const targets = data.dependencies[source];
+                    
+                    targets.forEach(target => {
+                        if (this.nodes[source] && this.nodes[target]) {
+                            this.links.push({
+                                source,
+                                target
+                            });
+                            
+                            // Count connections for filtering
+                            this.nodes[source].connections = (this.nodes[source].connections || 0) + 1;
+                            this.nodes[target].connections = (this.nodes[target].connections || 0) + 1;
+                        }
+                    });
+                });
+            }
+
+            createGraph() {
+                // Clear existing objects
+                this.clearGraph();
+                
+                // Position nodes using a force-directed algorithm
+                this.positionNodes();
+                
+                // Create node objects
+                Object.values(this.nodes).forEach(node => {
+                    if (node.connections < this.minConnections) return;
+                    
+                    // Determine color based on file type
+                    let color;
+                    if (node.path.startsWith('library:')) {
+                        color = this.colorMap['library'];
+                    } else {
+                        const ext = node.type.toLowerCase();
+                        color = this.colorMap[ext] || 0xffffff;
+                    }
+                    
+                    // Create sphere for node with slightly better material
+                    const geometry = new THREE.SphereGeometry(node.size, 32, 32);
+                    const material = new THREE.MeshPhongMaterial({ 
+                        color,
+                        shininess: 70,
+                        specular: 0x111111
+                    });
+                    const sphere = new THREE.Mesh(geometry, material);
+                    
+                    sphere.position.set(node.x, node.y, node.z);
+                    sphere.userData = { type: 'node', id: node.id, ...node };
+                    
+                    this.scene.add(sphere);
+                    this.nodeObjects[node.id] = sphere;
+                    
+                    // Create text label
+                    this.createLabel(node);
+                });
+                
+                // Create links
+                this.links.forEach(link => {
+                    const sourceNode = this.nodes[link.source];
+                    const targetNode = this.nodes[link.target];
+                    
+                    if (!sourceNode || !targetNode) return;
+                    if (sourceNode.connections < this.minConnections || targetNode.connections < this.minConnections) return;
+                    
+                    const sourceObj = this.nodeObjects[link.source];
+                    const targetObj = this.nodeObjects[link.target];
+                    
+                    if (!sourceObj || !targetObj) return;
+                    
+                    const start = sourceObj.position;
+                    const end = targetObj.position;
+                    
+                    // Use curved lines for better visualization
+                    const curvePoints = this.createCurvedLinePath(start, end);
+                    const geometry = new THREE.BufferGeometry().setFromPoints(curvePoints);
+                    
+                    const material = new THREE.LineBasicMaterial({
+                        color: 0x94a3b8, // A brighter gray
+                        transparent: true,
+                        opacity: 0.2
+                    });
+                    
+                    const line = new THREE.Line(geometry, material);
+                    line.userData = { type: 'link', source: link.source, target: link.target };
+                    
+                    this.scene.add(line);
+                    this.linkObjects.push(line);
+                });
+            }
+
+            createCurvedLinePath(start, end) {
+                // Create a slightly curved line between two points
+                const midPoint = new THREE.Vector3(
+                    (start.x + end.x) / 2,
+                    (start.y + end.y) / 2,
+                    (start.z + end.z) / 2
+                );
+                
+                // Add a slight offset to create a curve
+                const distance = start.distanceTo(end);
+                const curveHeight = distance * 0.05;
+                
+                // Direction perpendicular to the line
+                const dir = new THREE.Vector3().subVectors(end, start);
+                const norm = new THREE.Vector3(-dir.y, dir.x, 0).normalize();
+                
+                midPoint.add(norm.multiplyScalar(curveHeight));
+                
+                // Create quadratic bezier curve
+                const curve = new THREE.QuadraticBezierCurve3(
+                    new THREE.Vector3(start.x, start.y, start.z),
+                    midPoint,
+                    new THREE.Vector3(end.x, end.y, end.z)
+                );
+                
+                return curve.getPoints(20);
+            }
+
+            createLabel(node) {
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                context.font = '24px Inter, sans-serif';
+                
+                // Get text width
+                const textWidth = context.measureText(node.name).width;
+                
+                // Set canvas size
+                canvas.width = textWidth + 20;
+                canvas.height = 40;
+                
+                // Draw background with rounded corners (fake it with canvas)
+                context.fillStyle = 'rgba(30, 41, 59, 0.85)';
+                context.beginPath();
+                context.roundRect(0, 0, canvas.width, canvas.height, 8);
+                context.fill();
+                
+                // Draw text
+                context.font = '24px Inter, sans-serif';
+                context.fillStyle = '#f8fafc';
+                context.fillText(node.name, 10, 28);
+                
+                // Create sprite
+                const texture = new THREE.CanvasTexture(canvas);
+                const material = new THREE.SpriteMaterial({ map: texture });
+                const sprite = new THREE.Sprite(material);
+                
+                sprite.position.set(node.x, node.y + 15, node.z);
+                sprite.scale.set(canvas.width / 2, canvas.height / 2, 1);
+                sprite.visible = this.showLabels;
+                
+                this.scene.add(sprite);
+                this.labelSprites.push({ sprite, nodeId: node.id });
+            }
+
+            positionNodes() {
+                // Improved force-directed layout for better node positioning
+                const nodeArray = Object.values(this.nodes);
+                
+                // Start with random positions
+                nodeArray.forEach(node => {
+                    node.x = (Math.random() - 0.5) * 1000;
+                    node.y = (Math.random() - 0.5) * 1000;
+                    node.z = (Math.random() - 0.5) * 1000;
+                });
+                
+                // Run iterations of force-directed algorithm
+                const iterations = 150; // More iterations for better layout
+                const repulsionForce = 2000; // Stronger repulsion
+                const attractionForce = 0.05; // Weaker attraction for better spacing
+                
+                for (let i = 0; i < iterations; i++) {
+                    // Calculate repulsion forces
+                    for (let a = 0; a < nodeArray.length; a++) {
+                        const nodeA = nodeArray[a];
+                        
+                        let forceX = 0;
+                        let forceY = 0;
+                        let forceZ = 0;
+                        
+                        for (let b = 0; b < nodeArray.length; b++) {
+                            if (a === b) continue;
+                            
+                            const nodeB = nodeArray[b];
+                            
+                            const dx = nodeA.x - nodeB.x;
+                            const dy = nodeA.y - nodeB.y;
+                            const dz = nodeA.z - nodeB.z;
+                            
+                            const distance = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
+                            
+                            // Repulsion force (inverse square law)
+                            const force = repulsionForce / (distance * distance);
+                            
+                            forceX += dx / distance * force;
+                            forceY += dy / distance * force;
+                            forceZ += dz / distance * force;
+                        }
+                        
+                        nodeA.forceX = forceX;
+                        nodeA.forceY = forceY;
+                        nodeA.forceZ = forceZ;
+                    }
+                    
+                    // Calculate attraction forces
+                    this.links.forEach(link => {
+                        const sourceNode = this.nodes[link.source];
+                        const targetNode = this.nodes[link.target];
+                        
+                        if (!sourceNode || !targetNode) return;
+                        
+                        const dx = sourceNode.x - targetNode.x;
+                        const dy = sourceNode.y - targetNode.y;
+                        const dz = sourceNode.z - targetNode.z;
+                        
+                        const distance = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
+                        
+                        // Attraction force (Hooke's law)
+                        const force = attractionForce * distance;
+                        
+                        const fx = dx / distance * force;
+                        const fy = dy / distance * force;
+                        const fz = dz / distance * force;
+                        
+                        sourceNode.forceX -= fx;
+                        sourceNode.forceY -= fy;
+                        sourceNode.forceZ -= fz;
+                        
+                        targetNode.forceX += fx;
+                        targetNode.forceY += fy;
+                        targetNode.forceZ += fz;
+                    });
+                    
+                    // Apply forces with cooling factor
+                    const cooling = 1 - (i / iterations);
+                    nodeArray.forEach(node => {
+                        node.x += node.forceX * cooling || 0;
+                        node.y += node.forceY * cooling || 0;
+                        node.z += node.forceZ * cooling || 0;
+                        
+                        // Clear forces for next iteration
+                        node.forceX = 0;
+                        node.forceY = 0;
+                        node.forceZ = 0;
+                    });
+                }
+                
+                // Center the graph
+                let centerX = 0, centerY = 0, centerZ = 0;
+                nodeArray.forEach(node => {
+                    centerX += node.x;
+                    centerY += node.y;
+                    centerZ += node.z;
+                });
+                
+                centerX /= nodeArray.length;
+                centerY /= nodeArray.length;
+                centerZ /= nodeArray.length;
+                
+                nodeArray.forEach(node => {
+                    node.x -= centerX;
+                    node.y -= centerY;
+                    node.z -= centerZ;
+                });
+            }
+
+            clearGraph() {
+                // Remove node objects
+                Object.values(this.nodeObjects).forEach(obj => {
+                    this.scene.remove(obj);
+                });
+                
+                // Remove link objects
+                this.linkObjects.forEach(obj => {
+                    this.scene.remove(obj);
+                });
+                
+                // Remove label sprites
+                this.labelSprites.forEach(({ sprite }) => {
+                    this.scene.remove(sprite);
+                });
+                
+                // Reset collections
+                this.nodeObjects = {};
+                this.linkObjects = [];
+                this.labelSprites = [];
+            }
+
+            animate() {
+                requestAnimationFrame(this.animate.bind(this));
+                
+                this.controls.update();
+                this.updateLabelPositions();
+                this.renderer.render(this.scene, this.camera);
+            }
+
+            updateLabelPositions() {
+                // Get camera position to make labels face the camera
+                const cameraPosition = this.camera.position.clone();
+                
+                this.labelSprites.forEach(({ sprite, nodeId }) => {
+                    const nodeObj = this.nodeObjects[nodeId];
+                    if (nodeObj) {
+                        // Position above the node
+                        sprite.position.set(
+                            nodeObj.position.x,
+                            nodeObj.position.y + nodeObj.scale.y * 12,
+                            nodeObj.position.z
+                        );
+                        
+                        // Make label face the camera
+                        sprite.lookAt(cameraPosition);
+                    }
+                });
+            }
+
+            onMouseMove(event) {
+                // Calculate mouse position in normalized device coordinates
+                this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+                this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+                
+                // Update the picking ray
+                this.raycaster.setFromCamera(this.mouse, this.camera);
+                
+                // Find intersections with nodes
+                const intersects = this.raycaster.intersectObjects(Object.values(this.nodeObjects));
+                
+                // Handle hover state
+                if (intersects.length > 0) {
+                    const object = intersects[0].object;
+                    
+                    if (this.hoveredObject !== object) {
+                        // Reset previous hover
+                        if (this.hoveredObject) {
+                            this.hoveredObject.material.emissive.setHex(0x000000);
+                        }
+                        
+                        // Set new hover
+                        this.hoveredObject = object;
+                        this.hoveredObject.material.emissive.setHex(0x333333);
+                        
+                        // Update info panel with animation
+                        const nodeData = object.userData;
+                        this.updateInfoPanel(nodeData);
+                        
+                        // Highlight connected nodes and links
+                        this.highlightConnections(nodeData.id);
+                    }
+                } else {
+                    // Reset hover if not hovering over any node
+                    if (this.hoveredObject && !this.selectedObject) {
+                        this.hoveredObject.material.emissive.setHex(0x000000);
+                        this.hoveredObject = null;
+                        
+                        // Hide info panel if no node is selected
+                        if (!this.selectedObject) {
+                            this.infoPanel.classList.remove('active');
+                        }
+                        
+                        // Reset highlighted connections
+                        this.resetHighlights();
+                    }
+                }
+            }
+
+            updateInfoPanel(nodeData) {
+                // Update info panel content
+                const isLibrary = nodeData.path.startsWith('library:');
+                
+                let content = '';
+                
+                if (isLibrary) {
+                    content = `
+                        <div class="info-item">
+                            <span class="info-item-label">Library</span>
+                            <span class="info-item-value">${nodeData.name}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-item-label">Type</span>
+                            <span class="info-item-value">
+                                <span class="badge badge-primary">External Library</span>
+                            </span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-item-label">Connections</span>
+                            <span class="info-item-value">${nodeData.connections}</span>
+                        </div>
+                    `;
+                } else {
+                    content = `
+                        <div class="info-item">
+                            <span class="info-item-label">Filename</span>
+                            <span class="info-item-value">${nodeData.name}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-item-label">Path</span>
+                            <span class="info-item-value" style="word-break: break-all;">${nodeData.path}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-item-label">Type</span>
+                            <span class="info-item-value">
+                                <span class="badge badge-primary">${nodeData.type}</span>
+                            </span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-item-label">Connections</span>
+                            <span class="info-item-value">${nodeData.connections}</span>
+                        </div>
+                    `;
+                }
+                
+                document.getElementById('info-panel-content').innerHTML = content;
+                document.getElementById('info-panel-title').textContent = isLibrary ? 'Library Details' : 'File Details';
+                
+                // Show info panel
+                this.infoPanel.classList.add('active');
+            }
+
+            highlightConnections(nodeId) {
+                // Reset previous highlights
+                this.resetHighlights();
+                
+                // Highlight links connected to this node
+                this.linkObjects.forEach(link => {
+                    if (link.userData.source === nodeId || link.userData.target === nodeId) {
+                        link.material.color.setHex(0x6366f1); // Primary color
+                        link.material.opacity = 0.8;
+                        
+                        // Highlight connected nodes
+                        const connectedNodeId = link.userData.source === nodeId ? link.userData.target : link.userData.source;
+                        const connectedNode = this.nodeObjects[connectedNodeId];
+                        
+                        if (connectedNode) {
+                            connectedNode.material.emissive.setHex(0x333333);
+                        }
+                    }
+                });
+            }
+
+            resetHighlights() {
+                // Reset link highlights
+                this.linkObjects.forEach(link => {
+                    link.material.color.setHex(0x94a3b8);
+                    link.material.opacity = 0.2;
+                });
+                
+                // Reset node highlights
+                Object.values(this.nodeObjects).forEach(node => {
+                    if (node !== this.hoveredObject && node !== this.selectedObject) {
+                        node.material.emissive.setHex(0x000000);
+                    }
+                });
+            }
+
+            resetCamera() {
+                // Smoothly animate camera back to starting position
+                const startPosition = this.camera.position.clone();
+                const endPosition = new THREE.Vector3(0, 0, 1000);
+                const duration = 1000; // ms
+                const startTime = Date.now();
+                
+                const animateCamera = () => {
+                    const elapsed = Date.now() - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+                    
+                    // Ease function (cubic)
+                    const ease = progress < 0.5 ? 4 * progress * progress * progress : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+                    
+                    // Interpolate position
+                    const x = startPosition.x + (endPosition.x - startPosition.x) * ease;
+                    const y = startPosition.y + (endPosition.y - startPosition.y) * ease;
+                    const z = startPosition.z + (endPosition.z - startPosition.z) * ease;
+                    
+                    this.camera.position.set(x, y, z);
+                    this.camera.lookAt(0, 0, 0);
+                    
+                    if (progress < 1) {
+                        requestAnimationFrame(animateCamera);
+                    } else {
+                        this.controls.reset();
+                    }
+                };
+                
+                animateCamera();
+                
+                // Show tooltip for guidance
+                this.showTooltip('Camera view has been reset', {
+                    x: window.innerWidth / 2,
+                    y: window.innerHeight / 2
+                }, 2000);
+            }
+
+            toggleLabels() {
+                this.showLabels = !this.showLabels;
+                
+                this.labelSprites.forEach(({ sprite }) => {
+                    sprite.visible = this.showLabels;
+                });
+                
+                // Show tooltip indicating the action
+                this.showTooltip(this.showLabels ? 'Labels turned on' : 'Labels turned off', {
+                    x: window.innerWidth / 2,
+                    y: window.innerHeight / 2
+                }, 2000);
+            }
+
+            toggleSidebar() {
+                this.sidebar.classList.toggle('sidebar-collapsed');
+                
+                // Adjust controls after sidebar toggle
+                setTimeout(() => {
+                    this.handleResize();
+                }, 300);
+            }
+
+            handleResize() {
+                // Update camera and renderer on window resize
+                const width = window.innerWidth;
+                const height = window.innerHeight;
+                
+                this.camera.aspect = width / height;
+                this.camera.updateProjectionMatrix();
+                this.renderer.setSize(width, height);
+                this.controls.handleResize();
+            }
+
+            populateFilters(data) {
+                // Populate file type filter
+                const fileTypeFilter = document.getElementById('file-type-filter');
+                fileTypeFilter.innerHTML = '<option value="all">All File Types</option>';
+                if (data.fileTypes && data.fileTypes.length) {
+                    data.fileTypes.forEach(type => {
+                        const option = document.createElement('option');
+                        option.value = type;
+                        option.textContent = type;
+                        fileTypeFilter.appendChild(option);
+                    });
+                    // Add option for libraries
+                    const option = document.createElement('option');
+                    option.value = 'library';
+                    option.textContent = 'Libraries';
+                    fileTypeFilter.appendChild(option);
+                }
+                
+                // Populate library filter
+                const libraryFilter = document.getElementById('library-filter');
+                libraryFilter.innerHTML = '<option value="all">All Libraries</option>';
+                if (data.libraries && data.libraries.length) {
+                    data.libraries.forEach(lib => {
+                        const option = document.createElement('option');
+                        option.value = lib;
+                        option.textContent = lib;
+                        libraryFilter.appendChild(option);
+                    });
+                }
+            }
+
+            applyFilters() {
+                const fileTypeFilter = document.getElementById('file-type-filter').value;
+                const libraryFilter = document.getElementById('library-filter').value;
+                const filenameFilter = document.getElementById('filename-filter').value.toLowerCase();
+                
+                // Filter nodes based on selection
+                Object.values(this.nodes).forEach(node => {
+                    // Skip nodes with too few connections
+                    if (node.connections < this.minConnections) {
+                        node.visible = false;
+                        return;
+                    }
+                    
+                    let visible = true;
+                    
+                    // Apply file type filter
+                    if (fileTypeFilter !== 'all') {
+                        if (node.path.startsWith('library:')) {
+                            if (fileTypeFilter !== 'library') {
+                                visible = false;
+                            }
+                        } else if (node.type !== fileTypeFilter) {
+                            visible = false;
+                        }
+                    }
+                    
+                    // Apply library filter
+                    if (libraryFilter !== 'all') {
+                        if (!node.path.includes(libraryFilter)) {
+                            visible = false;
+                        }
+                    }
+                    
+                    // Apply filename filter
+                    if (filenameFilter && !node.name.toLowerCase().includes(filenameFilter)) {
+                        visible = false;
+                    }
+                    
+                    node.visible = visible;
+                });
+                
+                // Recreate the graph with filtered nodes
+                this.createGraph();
+            }
+
+            updateProjectInfo(data) {
+                // Count total files
+                const totalFiles = Object.keys(data.nodeInfo).filter(path => !path.startsWith('library:')).length;
+                document.getElementById('total-files').textContent = totalFiles;
+                
+                // Count total libraries
+                const totalLibraries = data.libraries ? data.libraries.length : 0;
+                document.getElementById('total-libraries').textContent = totalLibraries;
+                
+                // Count total dependencies
+                let totalDependencies = 0;
+                Object.keys(data.dependencies).forEach(source => {
+                    totalDependencies += data.dependencies[source].length;
+                });
+                document.getElementById('total-dependencies').textContent = totalDependencies;
+            }
+
+            createTooltip() {
+                const tooltip = document.createElement('div');
+                tooltip.className = 'tooltip';
+                document.body.appendChild(tooltip);
+                return tooltip;
+            }
+
+            showTooltip(text, position, duration = 2000) {
+                // Position tooltip
+                this.tooltip.textContent = text;
+                this.tooltip.style.left = `${position.x}px`;
+                this.tooltip.style.top = `${position.y}px`;
+                this.tooltip.classList.add('visible');
+                
+                // Set timeout to hide tooltip
+                setTimeout(() => {
+                    this.tooltip.classList.remove('visible');
+                }, duration);
+            }
+        }
+
+        // Function to create mock data for demo purposes
+        function createMockData() {
+            const mockData = {
+                dependencies: {},
+                nodeInfo: {},
+                libraries: ['react', 'express', 'winston', 'joi', 'bcrypt', 'passport'],
+                fileTypes: ['.ts', '.js', '.tsx', '.jsx']
+            };
+            
+            // Create mock file structure
+            const fileTypes = ['.ts', '.js', '.tsx', '.jsx'];
+            const folders = ['src/api', 'src/models', 'src/services', 'src/utils', 'src/middleware'];
+            
+            // Create files
+            folders.forEach(folder => {
+                const fileCount = Math.floor(Math.random() * 5) + 3; // 3 to 7 files per folder
+                
+                for (let i = 0; i < fileCount; i++) {
+                    const fileType = fileTypes[Math.floor(Math.random() * fileTypes.length)];
+                    const fileName = `${folder}/file${i}${fileType}`;
+                    
+                    mockData.nodeInfo[fileName] = {
+                        name: `file${i}${fileType}`,
+                        path: fileName,
+                        type: fileType,
+                        size: Math.random() * 5000 + 500 // random size between 500 and 5500 bytes
+                    };
+                    
+                    mockData.dependencies[fileName] = [];
+                }
+            });
+            
+            // Add library nodes
+            mockData.libraries.forEach(lib => {
+                const libKey = `library:${lib}`;
+                mockData.nodeInfo[libKey] = {
+                    name: lib,
+                    path: libKey,
+                    type: 'library',
+                    size: 2000
+                };
+            });
+            
+            // Create random dependencies
+            Object.keys(mockData.nodeInfo).forEach(source => {
+                if (source.startsWith('library:')) return; // Libraries don't import files
+                
+                // Add some dependencies to other files
+                const fileCount = Math.floor(Math.random() * 4) + 1; // 1 to 4 dependencies
+                const allFiles = Object.keys(mockData.nodeInfo).filter(f => f !== source);
+                
+                for (let i = 0; i < fileCount; i++) {
+                    if (allFiles.length === 0) break;
+                    
+                    const randomIndex = Math.floor(Math.random() * allFiles.length);
+                    const target = allFiles[randomIndex];
+                    
+                    mockData.dependencies[source].push(target);
+                    
+                    // Remove to avoid duplicates
+                    allFiles.splice(randomIndex, 1);
+                }
+                
+                // Add some dependencies to libraries
+                if (Math.random() > 0.3) { // 70% chance to have library dependency
+                    const libCount = Math.floor(Math.random() * 3) + 1; // 1 to 3 library dependencies
+                    const libs = [...mockData.libraries];
+                    
+                    for (let i = 0; i < libCount; i++) {
+                        if (libs.length === 0) break;
+                        
+                        const randomIndex = Math.floor(Math.random() * libs.length);
+                        const lib = libs[randomIndex];
+                        const libKey = `library:${lib}`;
+                        
+                        mockData.dependencies[source].push(libKey);
+                        
+                        // Remove to avoid duplicates
+                        libs.splice(randomIndex, 1);
+                    }
+                }
+            });
+            
+            return mockData;
+        }
+
+        // Analyze project function
+        async function analyzeProject(path) {
+            try {
+                document.getElementById('loading-container').classList.remove('hidden');
+                document.getElementById('welcome-modal').classList.add('hidden');
+                
+                // Make API request to analyze project
+                const response = await fetch(`/api/analyze?path=${encodeURIComponent(path)}`);
+                
+                if (!response.ok) {
+                    throw new Error(`Failed to analyze project: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                // Initialize visualization
+                const visualizer = new DependencyVisualizer();
+                await visualizer.init(data);
+                
+                document.getElementById('loading-container').classList.add('hidden');
+            } catch (error) {
+                console.error('Error analyzing project:', error);
+                alert(`Error analyzing project: ${error.message}`);
+                document.getElementById('loading-container').classList.add('hidden');
+                document.getElementById('welcome-modal').classList.remove('hidden');
+            }
+        }
+
+        // Load demo data function
+        async function loadDemoData() {
+            document.getElementById('loading-container').classList.remove('hidden');
+            document.getElementById('welcome-modal').classList.add('hidden');
+            
+            // Create mock data
+            const mockData = createMockData();
+            
+            // Initialize visualization with mock data
+            const visualizer = new DependencyVisualizer();
+            await visualizer.init(mockData);
+            
+            document.getElementById('loading-container').classList.add('hidden');
+        }
+
+        // Setup event listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            // Polyfill for roundRect if not supported
+            if (!CanvasRenderingContext2D.prototype.roundRect) {
+                CanvasRenderingContext2D.prototype.roundRect = function(x, y, width, height, radius) {
+                    if (width < 2 * radius) radius = width / 2;
+                    if (height < 2 * radius) radius = height / 2;
+                    this.beginPath();
+                    this.moveTo(x + radius, y);
+                    this.arcTo(x + width, y, x + width, y + height, radius);
+                    this.arcTo(x + width, y + height, x, y + height, radius);
+                    this.arcTo(x, y + height, x, y, radius);
+                    this.arcTo(x, y, x + width, y, radius);
+                    this.closePath();
+                    return this;
+                };
+            }
+            
+            // Initialize form
+            const analyzeBtn = document.getElementById('analyze-btn');
+            const demoBtn = document.getElementById('demo-btn');
+            const projectPathInput = document.getElementById('project-path');
+            
+            // Set default path
+            if (navigator.platform.includes('Win')) {
+                projectPathInput.value = 'C:\\path\\to\\your\\project';
+            } else {
+                projectPathInput.value = '/path/to/your/project';
+            }
+            
+            // Setup event listeners
+            analyzeBtn.addEventListener('click', () => {
+                const path = projectPathInput.value.trim();
+                if (path) {
+                    analyzeProject(path);
+                } else {
+                    alert('Please enter a valid project path');
+                }
+            });
+            
+            demoBtn.addEventListener('click', loadDemoData);
+        });
+    </script>
+</body>
+</html>
