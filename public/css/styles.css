@@ -721,3 +721,65 @@ body.visualization-active #super-toggle-btn {
 #super-toggle-btn:hover {
     transform: scale(1.1);
 }
+
+
+.search-container {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 150;
+}
+
+.search-box {
+  display: flex;
+  background-color: var(--gray-800);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+  width: 250px;
+}
+
+.search-box input {
+  flex: 1;
+  padding: 10px 15px;
+  border: none;
+  background-color: transparent;
+  color: var(--light);
+  font-size: 14px;
+}
+
+.search-box input:focus {
+  outline: none;
+}
+
+.search-box button {
+  background-color: var(--primary);
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.search-box button:hover {
+  background-color: var(--primary-dark);
+}
+
+/* Highlight for searched nodes */
+.highlight-pulse {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 15px rgba(99, 102, 241, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(99, 102, 241, 0);
+  }
+}
