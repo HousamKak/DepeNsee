@@ -1,7 +1,4 @@
-//------------------------------------------------------------------------
-// css/styles.css (All styles - improved UI)
-//------------------------------------------------------------------------
-
+/* Global Variables and Reset */
 :root {
     --primary: #6366F1;
     --primary-light: #818CF8;
@@ -36,7 +33,120 @@
 
 body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-    background-color: var(--gray-900);
+    background-color: rgba(99, 102, 241, 0.2);
+    color: var(--primary-light);
+}
+
+.badge-success {
+    background-color: rgba(16, 185, 129, 0.2);
+    color: var(--success);
+}
+
+/* Form Input Group */
+.form-input-group {
+    position: relative;
+    margin-bottom: 1.5rem;
+}
+
+.form-input-group input {
+    padding-left: 2.5rem;
+}
+
+.form-input-icon {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--gray-500);
+}
+
+/* Modal Divider */
+.modal-divider {
+    display: flex;
+    align-items: center;
+    margin: 1.5rem 0;
+    color: var(--gray-500);
+    font-size: 0.875rem;
+}
+
+.modal-divider::before,
+.modal-divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background-color: var(--gray-700);
+}
+
+.modal-divider::before {
+    margin-right: 1rem;
+}
+
+.modal-divider::after {
+    margin-left: 1rem;
+}
+
+/* Info Panel */
+.info-panel {
+    position: absolute;
+    bottom: 1rem;
+    right: 1rem;
+    background-color: var(--gray-800);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-lg);
+    max-width: 350px;
+    padding: 1rem;
+    z-index: 100;
+    transform: translateY(calc(100% + 1rem));
+    transition: transform 0.3s ease;
+    opacity: 0;
+}
+
+.info-panel.active {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+.info-panel-header {
+    padding-bottom: 0.75rem;
+    margin-bottom: 0.75rem;
+    border-bottom: 1px solid var(--gray-700);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.info-panel-header h3 {
+    margin: 0;
+    font-size: 1rem;
+}
+
+.close-btn {
+    background: transparent;
+    border: none;
+    color: var(--gray-400);
+    cursor: pointer;
+    padding: 0.25rem;
+}
+
+.close-btn:hover {
+    color: var(--gray-200);
+}
+
+.info-item {
+    margin-bottom: 0.5rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.info-item-label {
+    font-size: 0.75rem;
+    color: var(--gray-400);
+}
+
+.info-item-value {
+    font-size: 0.875rem;
+    color: var(--gray-100);
+}color: var(--gray-900);
     color: var(--light);
     overflow: hidden;
     line-height: 1.5;
@@ -47,7 +157,7 @@ h1, h2, h3, h4, h5, h6 {
     margin-bottom: 0.5rem;
 }
 
-/* Improved Layout & Components */
+/* Application Layout */
 .app-container {
     display: flex;
     height: 100vh;
@@ -60,25 +170,24 @@ h1, h2, h3, h4, h5, h6 {
     height: 100vh;
 }
 
-/* Force the sidebar to appear on top of everything */
+/* Sidebar Styles */
 .sidebar {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    z-index: 100000 !important; /* High z-index but lower than modal */
-    width: 320px !important;
-    height: 100vh !important;
+    width: 320px;
+    height: 100vh;
     background-color: var(--gray-800);
     box-shadow: var(--shadow-lg);
+    z-index: 100;
     display: flex;
     flex-direction: column;
-    transform: none !important;
-    transition: transform 0.3s ease !important;
-    overflow-y: auto !important;
+    transition: transform 0.3s ease;
+    overflow-y: auto;
+    position: fixed;
+    top: 0;
+    left: 0;
 }
 
 .sidebar-collapsed {
-    transform: translateX(-320px) !important;
+    transform: translateX(-100%);
 }
 
 .sidebar-header {
@@ -112,100 +221,7 @@ h1, h2, h3, h4, h5, h6 {
     margin-bottom: 0.75rem;
 }
 
-/* Force Three.js canvas to be behind the sidebar */
-#visualization-container canvas {
-    position: absolute !important;
-    z-index: 1 !important; /* Lower than sidebar */
-}
-
-/* Super toggle button that's always visible */
-#super-toggle-btn {
-    position: fixed !important;
-    top: 15px;
-    left: 15px;
-    z-index: 200000 !important; /* Higher than sidebar but lower than modal */
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
-    background-color: #6366F1;
-    color: white;
-    border: none;
-    display: flex !important;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.5) !important;
-    pointer-events: auto !important;
-    transition: left 0.3s ease, transform 0.2s ease !important;
-}
-
-#super-toggle-btn:hover {
-    transform: scale(1.1);
-}
-
-/* Hide original toggle buttons */
-.toggle-sidebar:not(#super-toggle-btn),
-#floating-sidebar-toggle {
-    display: none !important;
-}
-
-/* Styles for view mode toggle */
-.view-toggle-container {
-    margin-bottom: 1.25rem;
-}
-
-.toggle-switch {
-    display: flex;
-    background-color: var(--gray-700);
-    border-radius: var(--border-radius);
-    overflow: hidden;
-    position: relative;
-    width: 100%;
-    height: 40px;
-}
-
-.toggle-switch input[type="radio"] {
-    display: none;
-}
-
-.toggle-switch label {
-    flex: 1;
-    text-align: center;
-    padding: 0.625rem 0;
-    cursor: pointer;
-    z-index: 1;
-    transition: color 0.15s ease;
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--gray-400);
-    user-select: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.toggle-switch input[type="radio"]:checked + label {
-    color: white;
-}
-
-.toggle-switch::after {
-    content: '';
-    position: absolute;
-    width: 50%;
-    height: calc(100% - 4px);
-    top: 2px;
-    background-color: var(--primary);
-    border-radius: calc(var(--border-radius) - 4px);
-    transition: transform 0.3s ease;
-    left: 2px;
-    z-index: 0;
-}
-
-.toggle-switch input[type="radio"]:nth-of-type(2):checked ~ .toggle-switch::after {
-    transform: translateX(calc(100% - 4px));
-}
-
-/* Form elements */
+/* Form Elements */
 .form-group {
     margin-bottom: 1rem;
 }
@@ -279,6 +295,59 @@ select.form-control {
     margin-left: 0.5rem;
 }
 
+/* View Mode Toggle */
+.view-toggle-container {
+    margin-bottom: 1rem;
+}
+
+.toggle-switch {
+    display: flex;
+    background-color: var(--gray-700);
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    position: relative;
+    width: 100%;
+}
+
+.toggle-switch input[type="radio"] {
+    display: none;
+}
+
+.toggle-switch label {
+    flex: 1;
+    text-align: center;
+    padding: 0.5rem 0;
+    cursor: pointer;
+    z-index: 1;
+    transition: color 0.15s ease;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--gray-400);
+}
+
+.toggle-switch input[type="radio"]:checked + label {
+    color: white;
+}
+
+.toggle-switch::before {
+    content: '';
+    position: absolute;
+    width: 50%;
+    height: 100%;
+    background-color: var(--primary);
+    border-radius: calc(var(--border-radius) - 2px);
+    transition: transform 0.3s ease;
+    left: 0;
+}
+
+.toggle-switch input[type="radio"]:nth-of-type(1):checked ~ .toggle-switch::before {
+    transform: translateX(0);
+}
+
+.toggle-switch input[type="radio"]:nth-of-type(2):checked ~ .toggle-switch::before {
+    transform: translateX(100%);
+}
+
 /* Buttons */
 .btn {
     display: inline-flex;
@@ -292,25 +361,6 @@ select.form-control {
     cursor: pointer;
     transition: all 0.2s;
     text-decoration: none;
-}
-
-.btn-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 2.5rem;
-    height: 2.5rem;
-    border-radius: var(--border-radius);
-    border: none;
-    background-color: transparent;
-    color: var(--gray-400);
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.btn-icon:hover {
-    background-color: var(--gray-700);
-    color: var(--gray-200);
 }
 
 .btn-primary {
@@ -347,91 +397,59 @@ select.form-control {
     width: 100%;
 }
 
-.btn-group {
+/* Modal Styles */
+.modal-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.75);
     display: flex;
-    gap: 0.5rem;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
 }
 
-/* Card components */
-.card {
-    background-color: var(--gray-800);
-    border-radius: var(--border-radius);
-    box-shadow: var(--shadow);
-    margin-bottom: 1rem;
-    overflow: hidden;
-}
-
-.card-header {
-    padding: 1rem;
-    background-color: var(--gray-700);
-    border-bottom: 1px solid var(--gray-600);
-}
-
-.card-body {
-    padding: 1rem;
-}
-
-/* Info panel */
-.info-panel {
-    position: absolute;
-    bottom: 1rem;
-    right: 1rem;
+.modal {
     background-color: var(--gray-800);
     border-radius: var(--border-radius);
     box-shadow: var(--shadow-lg);
-    max-width: 350px;
-    padding: 1rem;
-    z-index: 100;
-    transform: translateY(calc(100% + 1rem));
-    transition: transform 0.3s ease;
-    opacity: 0;
+    max-width: 500px;
+    width: 90%;
+    overflow: hidden;
 }
 
-.info-panel.active {
-    transform: translateY(0);
-    opacity: 1;
-}
-
-.info-panel-header {
-    padding-bottom: 0.75rem;
-    margin-bottom: 0.75rem;
+.modal-header {
+    padding: 1.5rem;
     border-bottom: 1px solid var(--gray-700);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    text-align: center;
 }
 
-.info-panel-header h3 {
+.modal-header h2 {
     margin: 0;
-    font-size: 1rem;
-}
-
-.close-btn {
-    background: transparent;
-    border: none;
-    color: var(--gray-400);
-    cursor: pointer;
-    padding: 0.25rem;
-}
-
-.close-btn:hover {
-    color: var(--gray-200);
-}
-
-.info-item {
-    margin-bottom: 0.5rem;
-    display: flex;
-    flex-direction: column;
-}
-
-.info-item-label {
-    font-size: 0.75rem;
-    color: var(--gray-400);
-}
-
-.info-item-value {
-    font-size: 0.875rem;
     color: var(--gray-100);
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+.modal-footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--gray-700);
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+}
+
+/* Visualization Specific Styles */
+.visualization-container canvas {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
 }
 
 /* Legend */
@@ -475,94 +493,7 @@ select.form-control {
     color: var(--gray-300);
 }
 
-/* Onboarding Modal */
-.modal-container {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.75);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000000; /* Super high z-index to be above everything */
-}
-
-.modal {
-    background-color: var(--gray-800);
-    border-radius: var(--border-radius);
-    box-shadow: var(--shadow-lg);
-    max-width: 500px;
-    width: 90%;
-    overflow: hidden;
-}
-
-.modal-header {
-    padding: 1.5rem;
-    border-bottom: 1px solid var(--gray-700);
-    text-align: center;
-}
-
-.modal-header h2 {
-    margin: 0;
-    color: var(--gray-100);
-}
-
-.modal-body {
-    padding: 1.5rem;
-}
-
-.modal-footer {
-    padding: 1rem 1.5rem;
-    border-top: 1px solid var(--gray-700);
-    display: flex;
-    justify-content: flex-end;
-    gap: 1rem;
-}
-
-.form-input-group {
-    position: relative;
-    margin-bottom: 1.5rem;
-}
-
-.form-input-group input {
-    padding-left: 2.5rem;
-}
-
-.form-input-icon {
-    position: absolute;
-    left: 0.75rem;
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--gray-500);
-}
-
-.modal-divider {
-    display: flex;
-    align-items: center;
-    margin: 1.5rem 0;
-    color: var(--gray-500);
-    font-size: 0.875rem;
-}
-
-.modal-divider::before,
-.modal-divider::after {
-    content: "";
-    flex: 1;
-    height: 1px;
-    background-color: var(--gray-700);
-}
-
-.modal-divider::before {
-    margin-right: 1rem;
-}
-
-.modal-divider::after {
-    margin-left: 1rem;
-}
-
-/* Loading Spinner */
+/* Loading Overlay */
 .loading-container {
     position: absolute;
     top: 0;
@@ -586,9 +517,7 @@ select.form-control {
 }
 
 @keyframes spin {
-    to {
-        transform: rotate(360deg);
-    }
+    to { transform: rotate(360deg); }
 }
 
 .loading-text {
@@ -597,24 +526,36 @@ select.form-control {
     font-size: 1rem;
 }
 
-.badge {
-    display: inline-block;
-    padding: 0.25rem 0.5rem;
-    font-size: 0.75rem;
-    font-weight: 500;
-    border-radius: 9999px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .sidebar {
+        width: 85%;
+        max-width: 320px;
+    }
 }
 
-.badge-primary {
-    background-color: rgba(99, 102, 241, 0.2);
-    color: var(--primary-light);
+/* Utility Classes */
+.hidden {
+    display: none !important;
 }
 
-.badge-success {
-    background-color: rgba(16, 185, 129, 0.2);
-    color: var(--success);
+/* Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--gray-800);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--gray-600);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--gray-500);
 }
 
 /* Tooltip */
@@ -636,56 +577,114 @@ select.form-control {
     opacity: 1;
 }
 
-.hidden {
+/* Toggle Sidebar Button */
+.toggle-sidebar {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    z-index: 150;
+    background-color: var(--gray-800);
+    color: var(--gray-200);
+    border: none;
+    border-radius: 50%;
+    width: 3rem;
+    height: 3rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: var(--shadow-md);
+    transition: background-color 0.2s;
+}
+
+.toggle-sidebar:hover {
+    background-color: var(--gray-700);
+}
+
+/* Badges */
+.badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    border-radius: 9999px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.badge-primary {
+    background-color: rgba(99, 102, 241, 0.2);
+    color: var(--primary-light);
+}
+
+.badge-success {
+    background-color: rgba(16, 185, 129, 0.2);
+    color: var(--success);
+}
+
+/* Z-index and Modal Fixes */
+.modal-container {
+    z-index: 1000000 !important;
+}
+
+#super-toggle-btn {
     display: none !important;
 }
 
-/* Responsive Adjustments */
-@media (max-width: 768px) {
-    .sidebar {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 85%;
-        max-width: 320px;
-    }
-
-    .info-panel,
-    .legend {
-        max-width: calc(100% - 2rem);
-    }
+body.visualization-active #super-toggle-btn {
+    display: flex !important;
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+/* Floating Sidebar Toggle */
+#floating-sidebar-toggle {
+    display: none !important;
 }
 
-::-webkit-scrollbar-track {
-    background: var(--gray-800);
+/* Sidebar Z-index Priority */
+#sidebar {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    z-index: 100000 !important;
+    width: 320px !important;
+    height: 100vh !important;
+    transform: none !important;
+    transition: transform 0.3s ease !important;
+    overflow-y: auto !important;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5) !important;
 }
 
-::-webkit-scrollbar-thumb {
-    background: var(--gray-600);
-    border-radius: 4px;
+#sidebar.sidebar-collapsed {
+    transform: translateX(-320px) !important;
 }
 
-::-webkit-scrollbar-thumb:hover {
-    background: var(--gray-500);
+/* Ensure Three.js canvas is behind sidebar */
+#visualization-container canvas {
+    position: absolute !important;
+    z-index: 1 !important;
 }
 
-/* Add new styles for highlighted nodes in dependency mode */
-.dependency-source {
-    border: 2px solid var(--primary) !important;
+/* Super toggle button styling */
+#super-toggle-btn {
+    position: fixed !important;
+    top: 15px;
+    left: 15px;
+    z-index: 200000 !important;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background-color: #6366F1;
+    color: white;
+    border: none;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5) !important;
+    pointer-events: auto !important;
+    transition: left 0.3s ease, transform 0.2s ease !important;
 }
 
-.dependency-target {
-    border: 2px solid var(--success) !important;
-}
-
-/* More visible focus states */
-:focus {
-    outline: 2px solid var(--primary) !important;
-    outline-offset: 2px !important;
+#super-toggle-btn:hover {
+    transform: scale(1.1);
 }
