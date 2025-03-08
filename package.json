@@ -1,5 +1,5 @@
 {
-  "name": "dependency-graph-visualizer",
+  "name": "depensee",
   "version": "1.0.0",
   "description": "3D visualization of project dependencies",
   "main": "server.js",
