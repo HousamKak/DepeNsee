@@ -38,7 +38,6 @@
   - Clear indication of both dependencies and dependents
 
 - **Directed Graph Options:**
-  - Choose between arrow or receptor connection styles
   - Toggle directed/undirected graph visualization
   - Customize node sizes and connection opacity
 
