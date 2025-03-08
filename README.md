@@ -126,7 +126,6 @@
 
 - **2D/3D Toggle:** Switch between 2D and 3D visualization modes
 - **Directed Graph:** Enable/disable directional arrows
-- **Connection Style:** Choose between "receptor" or "arrow" styles
 - **Node Size:** Adjust the size of nodes
 - **Link Opacity:** Control the opacity of connection lines
 
