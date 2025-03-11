@@ -46,6 +46,13 @@ html, body {
     color: var(--success);
 }
 
+.sidebar-header  {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+
 /* Form Input Group */
 .form-input-group {
     position: relative;
