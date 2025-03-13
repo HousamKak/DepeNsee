@@ -5,7 +5,7 @@ const fs = require('fs');
 const FileDependencyAnalyzer = require('./file-dependency-analyzer');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 
 // Serve static files
 app.use(express.static('public'));
@@ -20,18 +20,18 @@ app.use((req, res, next) => {
 app.get('/api/analyze', async (req, res) => {
   try {
     const projectPath = req.query.path || process.cwd();
-    
+
     // Validate the path
     if (!fs.existsSync(projectPath)) {
       return res.status(400).json({ error: `Path does not exist: ${projectPath}` });
     }
-    
+
     console.log(`Analyzing project at: ${projectPath}`);
-    
+
     // Create analyzer and analyze the project
     const analyzer = new FileDependencyAnalyzer(projectPath);
     const data = await analyzer.analyze();
-    
+
     res.json(data);
   } catch (error) {
     console.error('Error analyzing project:', error);
