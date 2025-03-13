@@ -1,48 +1,50 @@
-# Dependency Visualization
+# DepeNsee: Advanced JavaScript Dependency Visualization
 
-**Dependency Visualization** is a tool that analyzes the dependencies in your JavaScript/TypeScript project and displays them in an interactive, 2D/3D graph. It extracts import statements from your project files, builds a dependency graph (including external libraries), and provides interactive controls (filters, toggles, zoom, pan, and rotate) to explore your project's structure.
+![DepeNsee Logo](public/img/DepeNsee.png)
+
+**DepeNsee** is a powerful tool for visualizing dependencies in JavaScript/TypeScript projects, offering both project-level dependency graphs and detailed file exploration with method-level analysis.
 
 ## Table of Contents
 
 - [Features](#features)
 - [Installation](#installation)
 - [Usage](#usage)
-  - [Running the Analyzer](#running-the-analyzer)
-  - [Demo Mode](#demo-mode)
-- [Navigation and Controls](#navigation-and-controls)
+- [Multi-Panel File Exploration](#multi-panel-file-exploration)
+- [Method Dependency Analysis](#method-dependency-analysis)
+- [Visualization Controls](#visualization-controls)
 - [Project Structure](#project-structure)
-- [Configuration](#configuration)
-- [Dependencies](#dependencies)
+- [Technical Architecture](#technical-architecture)
+- [Performance Considerations](#performance-considerations)
 - [Troubleshooting](#troubleshooting)
+- [Future Enhancements](#future-enhancements)
 - [License](#license)
 
 ## Features
 
-- **File Dependency Analysis:**  
-  Recursively scans a given project directory and parses JavaScript/TypeScript files to extract local and library dependencies using [Babel Parser](https://babeljs.io/docs/en/babel-parser) and [Babel Traverse](https://babeljs.io/docs/en/babel-traverse).
+### Project-Level Visualization
 
-- **Intuitive Graph Visualization:**  
-  Renders an interactive graph of the project's dependency tree with nodes representing files (or libraries) and arrows showing dependency relationships. Arrows correctly point FROM dependencies TO dependents, making it clear which files are being imported by others.
+- **Interactive 3D/2D Dependency Graph:** Visualize your entire project structure with nodes representing files and connections showing import relationships
+- **File Type Coloring:** Different file types (.js, .ts, .jsx, .tsx) are color-coded for easy identification
+- **Library Dependency Detection:** External library imports are automatically detected and visualized
+- **Advanced Filtering:** Filter by filename, file type, and library with dependency chain awareness
+- **Search Functionality:** Quickly find specific files in large codebases
 
-- **Interactive Controls:**  
-  - **Toggle between 2D and 3D:** Easily switch views with a toggle control.
-  - **Filtering:** Apply filters based on filename, file type, libraries, and connection counts.
-  - **Search:** Find and highlight specific nodes with the search bar in the top right.
-  - **View Details:** Hover over nodes to display file or library details (including dependency counts).
-  - **Camera Controls:** Reset, pan, zoom, and rotate (3D view only) for a better exploration experience.
+### File-Level Exploration
 
-- **Advanced Search and Navigation:**
-  - Quick search functionality to locate specific files in large codebases
-  - Automated camera focusing on search results
-  - Visual highlighting of matched nodes
-  - Clear indication of both dependencies and dependents
+- **Multi-Panel File View:** Click any file to open a detailed exploration with three panels:
+  - **Dependencies Panel:** Shows files and libraries imported by the current file
+  - **Methods Panel:** Visualizes methods/functions with call dependencies
+  - **Dependents Panel:** Shows files that import the current file
+- **Resizable Panels:** Drag dividers to adjust panel sizes based on your focus
+- **Panel-Specific 2D/3D Toggle:** Each panel can be independently viewed in 2D or 3D
+- **File-to-File Navigation:** Click on dependencies or dependents to navigate between files
 
-- **Directed Graph Options:**
-  - Toggle directed/undirected graph visualization
-  - Customize node sizes and connection opacity
+### Method-Level Analysis
 
-- **Demo Mode:**  
-  Load a set of mock dependency data to quickly explore the visualization without needing to analyze a real project.
+- **Method Parsing:** Automatically extracts methods, functions, and their relationships
+- **Method Call Graph:** Visualizes which methods call which within a file
+- **Method Details:** View parameter information, return types, and call dependencies
+- **Method Types:** Different visualizations for regular functions, class methods, and arrow functions
 
 ## Installation
 
@@ -56,8 +58,8 @@
 1. **Clone the repository:**
 
    ```bash
-   git clone https://github.com/yourusername/dependency-visualization.git
-   cd dependency-visualization
+   git clone https://github.com/yourusername/depensee.git
+   cd depensee
    ```
 
 2. **Install dependencies:**
@@ -88,139 +90,205 @@
    npm run dev
    ```
 
-4. **Open in browser:**  
-   Navigate to [http://localhost:3000](http://localhost:3000) in your web browser to start visualizing your project dependencies.
+4. **Access in browser:**  
+   Navigate to [http://localhost:5000](http://localhost:5000) in your web browser.
 
 ## Usage
 
-### Running the Analyzer
+### Analyzing a Project
 
-- **Project Path Input:**  
-  Upon launching the application, a welcome modal appears. Enter the absolute path to the project directory you want to analyze (for example, `C:\path\to\your\project` on Windows or `/path/to/your/project` on Unix-based systems).
+1. Open DepeNsee in your browser
+2. Enter the absolute path to your project directory
+3. Choose whether to enable method parsing (can be disabled for very large projects)
+4. Click "Analyze Project"
+5. Explore the interactive dependency graph
 
-- **Analyze Button:**  
-  Click the **Analyze Project** button. The server will then scan the provided directory, extract dependencies, and send the data to the client, where it is rendered as an interactive graph.
+### Using Demo Mode
 
-### Demo Mode
+If you want to test DepeNsee without a project:
 
-- If you do not have a project path handy or want to test the visualization, click the **Try with Demo Data** button. This will load a set of mock data that simulates a realistic project dependency graph.
+1. Click "Try with Demo Data" on the welcome screen
+2. A mock project with realistic dependencies will be generated for exploration
 
-## Navigation and Controls
+## Multi-Panel File Exploration
 
-### Basic Controls
+The multi-panel view is accessed by clicking on any file node in the main visualization.
 
+### Panel Navigation
+
+- **Left Panel (Dependencies):** Shows files and libraries imported by the current file
+  - The current file appears as a central node
+  - Dependencies are arranged in a radial layout around it
+  - Click any dependency to navigate to it
+
+- **Center Panel (Methods):** Visualizes methods and functions within the file
+  - Methods are shown as nodes with connections representing calls
+  - Color coding differentiates between regular functions, class methods, and arrow functions
+  - Hover over methods to see details and highlight relationships
+
+- **Right Panel (Dependents):** Shows files that import the current file
+  - Each dependent file is represented as a node
+  - Click any dependent to navigate to it
+
+### Panel Controls
+
+- **Resize Panels:** Drag the dividers between panels to resize
+- **2D/3D Toggle:** Each panel has its own toggle between 2D and 3D visualization
+- **Back to Graph:** Return to the main project visualization
+
+## Method Dependency Analysis
+
+Method parsing extracts function and method information from your code:
+
+### Method Detection
+
+- Regular functions (`function name() {}`)
+- Class methods (inside `class` declarations)
+- Arrow functions (`const name = () => {}`)
+- Function expressions (`const name = function() {}`)
+
+### Extracted Information
+
+- Function names and types
+- Parameters and return types (when using TypeScript)
+- Line numbers and positions
+- Method calls between functions
+
+### Method Visualization
+
+Methods are visualized as an interactive graph:
+
+- **Node Colors:** Different colors for functions, methods, and arrow functions
+- **Connections:** Arrows show which methods call which
+- **Tooltips:** Hover over nodes to see method details
+
+## Visualization Controls
+
+### Main Visualization
+
+- **Toggle 2D/3D:** Switch between 2D and 3D visualization modes
 - **Rotate:** Left-click + drag (3D mode only)
 - **Pan:** Right-click + drag
 - **Zoom:** Scroll wheel
-- **View File Details:** Hover over any node
+- **Reset View:** Click the reset button to restore default view
+- **Search:** Use the search box to find specific files
 
-### Search and Filtering
+### Filtering
 
-- **Quick Search:** Use the search box in the top right corner to find specific files or libraries
-- **Filename Filter:** Filter by partial filename match in the sidebar
+- **Filename Filter:** Filter by partial filename match
 - **File Type Filter:** Show only specific file types (.js, .ts, .tsx, etc.)
 - **Library Filter:** Focus on specific library dependencies
-- **Dependency Analysis:** Show selected nodes along with their dependencies, dependents, or both
+- **Dependency Analysis:** Show selected nodes along with:
+  - Their dependencies
+  - Their dependents
+  - Complete dependency chain
 
-### Visualization Options
+### Panel-Specific Controls
 
-- **2D/3D Toggle:** Switch between 2D and 3D visualization modes
-- **Directed Graph:** Enable/disable directional arrows
-- **Node Size:** Adjust the size of nodes
-- **Link Opacity:** Control the opacity of connection lines
+- **Node Hover:** Hover over nodes to highlight connections and show details
+- **Node Click:** Click nodes to navigate to that file or select that method
+- **Panel 2D/3D Toggle:** Each panel can be independently toggled between 2D and 3D
 
 ## Project Structure
 
 ```
-Dependency Visualization/
-├── .gitignore
-├── file-dependency-analyzer.js
-├── file_selector.log
-├── package-lock.json
-├── package.json
-├── public/
+DepeNsee/
+├── file-dependency-analyzer.js  # Core dependency analysis engine
+├── server.js                   # Express server for API endpoints
+├── public/                     # Front-end files
 │   ├── css/
-│   │   └── styles.css
+│   │   └── styles.css          # UI styling
 │   ├── js/
-│   │   ├── dataHandlers.js
-│   │   ├── DependencyVisualizer.js
-│   │   ├── main.js
-│   │   └── utils.js
-│   └── index.html
-├── README.md
-└── server.js
-
+│   │   ├── main.js             # Application initialization
+│   │   ├── DependencyVisualizer.js  # Main visualization engine
+│   │   ├── MethodInfoDisplay.js     # Method info UI component
+│   │   ├── dataHandlers.js     # Data processing utilities
+│   │   └── utils.js            # Helper functions
+│   ├── img/                    # Images and icons
+│   └── index.html              # Main HTML template
+└── README.md                   # This file
 ```
 
-- **file-dependency-analyzer.js:**  
-  Contains the logic to scan directories, parse JavaScript/TypeScript files, and build a dependency graph. It uses Babel to parse files and traverse their ASTs.
+## Technical Architecture
 
-- **public/**  
-  Hosts the front-end code:
-  - **index.html:** The main HTML page that includes the welcome modal, sidebar controls, and visualization container.
-  - **css/styles.css:** All styling rules for the layout, buttons, modals, and toggle switches.
-  - **js/main.js:** The entry point that sets up polyfills, event listeners, and initializes the visualization.
-  - **js/DependencyVisualizer.js:** A class that uses Three.js (with TrackballControls) to render and interact with the dependency graph.
-  - **js/dataHandlers.js and js/utils.js:** Helper functions for data processing and mock data generation.
+### Backend
 
-- **server.js:**  
-  Sets up an Express server that serves static files and provides an API endpoint (`/api/analyze?path=...`) to trigger the dependency analysis on a given project directory.
+- **Express Server:** Provides API endpoints for project analysis
+- **Babel Parser:** Parses JavaScript/TypeScript files to extract dependencies and method information
+- **File System Access:** Recursively scans project directories
 
-## Configuration
+### Frontend
 
-- **Node Engine Requirement:**  
-  The project requires Node.js version 14.0.0 or later (as specified in `package.json`).
+- **Three.js:** 3D visualization engine for dependency graphs
+- **TrackballControls:** Camera controls for 3D visualization
+- **Custom Force-Directed Layouts:** Specialized layouts for different visualization types:
+  - Standard force-directed layout for main graph
+  - Radial layout for dependencies panel
+  - Method-specific layout for function calls
 
-- **Port Configuration:**  
-  The server runs on port 3000 by default. You can override this by setting the `PORT` environment variable before starting the server.
+### Data Flow
 
-- **Dependencies:**  
-  The analysis uses:
-  - `@babel/parser` and `@babel/traverse` for parsing code.
-  - `express` for the web server.
-  - `nodemon` is available for development to automatically restart the server when files change.
-  
-  The front end uses:
-  - `three.js` for the 3D rendering.
-  - `dat.gui` and `lodash` for UI controls and utility functions.
-  
-  Additional libraries and tools are installed as per `package-lock.json`.
+1. **Project Analysis:**
+   - Backend scans project files
+   - Files are parsed to extract imports and methods
+   - Dependency relationships are mapped
 
-## Dependencies
+2. **Visualization:**
+   - Dependency data is sent to the client
+   - Three.js creates interactive graph
+   - Force-directed layout positions nodes
 
-Some of the key dependencies include:
+3. **File Exploration:**
+   - Click on file node triggers multi-panel view
+   - Each panel creates its own visualization
+   - Method call graph is built from parsed data
 
-- **@babel/parser & @babel/traverse:**  
-  Parse and analyze JavaScript/TypeScript code.
+## Performance Considerations
 
-- **Express:**  
-  A fast, unopinionated, minimalist web framework for Node.js.
+### Large Projects
 
-- **Three.js:**  
-  Used on the client side for creating and rendering the interactive dependency graph in 2D/3D.
+- **Method Parsing Toggle:** Can be disabled for very large projects to improve performance
+- **Progressive Loading:** Only the viewed file's methods are analyzed in detail
+- **Optimized Rendering:** Visualization optimizations include:
+  - Culling of off-screen elements
+  - Reduced detail during camera movement
+  - Animation frame throttling
 
-- **Nodemon:**  
-  Facilitates development by restarting the server automatically when file changes are detected.
+### Memory Management
+
+- **Resource Cleanup:** Proper cleanup when transitioning between views
+- **Scene Optimization:** Shared materials and geometries to reduce memory usage
+- **Texture Management:** Text labels use efficient canvas-based sprites
 
 ## Troubleshooting
 
-- **Project Path Errors:**  
-  Ensure that the path you enter in the welcome modal exists and that your application has permission to access it. Incorrect paths will result in an error message.
+### Common Issues
 
-- **Search Not Highlighting Results:**  
-  If search results aren't highlighting, ensure JavaScript is fully loaded and try clicking the search button rather than pressing Enter.
+- **Long Load Times:** For large projects, consider disabling method parsing
+- **Visualization Performance:** Switch to 2D mode for better performance on slower devices
+- **Panel Rendering Issues:** If panels appear empty, try resizing the browser window
 
-- **Long Analysis Times:**  
-  For very large projects, the dependency analysis may take a few minutes. The server timeout is set to 2 minutes by default, but you can adjust it in `server.js` if needed.
+### Error Recovery
 
-- **Dependency Direction Issues:**  
-  The arrows should point FROM dependencies TO dependents (i.e., from imported modules toward the importing file). If arrows appear backwards, check if the directed graph toggle is enabled.
+- **Panel Errors:** Each panel has independent error handling
+- **Empty States:** Informative messages for panels with no data
+- **Back to Graph:** The "Back to Graph" button can be used to reset to the main view
 
-- **3D View Controls:**  
-  In 2D mode the camera is orthographic, and rotation is disabled. To see full 3D interaction, switch to the 3D mode using the toggle.
+## Future Enhancements
+
+Planned features for future releases:
+
+- **Code Preview:** Show method code on hover
+- **File Content Viewer:** View file contents directly in the sidebar
+- **Export/Import:** Save visualizations as images or JSON
+- **Collaboration Features:** Share visualizations with team members
+- **Visual Diff:** Compare dependency structures between project versions
+- **IDE Integration:** Plugin versions for VS Code, WebStorm, etc.
 
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
 
 ---
+
+*Created with DepeNsee - Visualize Your Code Structure*

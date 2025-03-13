@@ -43,8 +43,24 @@ export class DependencyVisualizer {
             'library': 0xaaaaaa // Gray
         };
 
+        // New properties for multi-panel view
+        this.isPanelMode = false;
+        this.currentFile = null;
+        this.panels = {
+            dependencies: null,  // Left panel (imports)
+            methods: null,       // Center panel (methods)
+            dependents: null,    // Right panel (dependents)
+        };
+
+        // Method data
+        this.methodData = {};
+        this.methodDependencies = {};
+
         // DOM Elements - set up in initUI
-        this.sidebar = null;
+        this.sidebar = {
+            visible: true,
+            content: null
+        };
         this.infoPanel = null;
         this.closeInfoPanelBtn = null;
 
@@ -254,8 +270,15 @@ export class DependencyVisualizer {
 
     // Initialize visualization with data
     async init(data, initialViewMode = '2d') {
+
+        console.log('Initializing DependencyVisualizer...');
+
         // Store raw data for filtering
         this.rawData = data;
+
+        // Store method data
+        this.methodData = data.methodInfo || {};
+        this.methodDependencies = data.methodDependencies || {};
 
         // Initialize UI elements and event listeners
         this.initUI();
@@ -287,6 +310,9 @@ export class DependencyVisualizer {
         // Update project info
         this.updateProjectInfo(data);
 
+        // Set up handlers for file node clicks - do this last
+        this.setupNodeClickHandler();
+
         // Add initial hint
         this.showTooltip(`${this.viewMode === '2d' ? '2D' : '3D'} visualization loaded. Hover over nodes to see details.`, {
             x: window.innerWidth / 2,
@@ -295,6 +321,2019 @@ export class DependencyVisualizer {
 
         // Make sure 2D/3D toggle reflects correct mode
         this.updateViewModeControls();
+    }
+
+    // Add handler for node clicks to transition to multi-panel view
+    setupNodeClickHandler() {
+        // Use direct binding to the renderer's canvas element instead of window
+        if (!this.renderer || !this.renderer.domElement) {
+            console.error('Cannot setup node click handler - renderer not initialized');
+            return;
+        }
+
+        console.log('Setting up node click handler on canvas');
+
+        // Add click handler directly to the canvas for better precision
+        this.renderer.domElement.addEventListener('click', (event) => {
+            console.log('Canvas click detected');
+
+            // Early return checks
+            if (!this.initialized) {
+                console.log('Click ignored - visualizer not fully initialized');
+                return;
+            }
+
+            if (!this.camera) {
+                console.log('Click ignored - camera not available');
+                return;
+            }
+
+            if (this.isPanelMode) {
+                console.log('Click ignored - already in panel mode');
+                return;
+            }
+
+            // Get canvas-relative mouse coordinates
+            const rect = this.renderer.domElement.getBoundingClientRect();
+            this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+            console.log('Mouse position (normalized):', this.mouse.x, this.mouse.y);
+
+            // Update raycaster
+            this.raycaster.setFromCamera(this.mouse, this.camera);
+
+            // Check for node objects available for intersection
+            const nodeObjectValues = Object.values(this.nodeObjects);
+            console.log('Number of node objects available:', nodeObjectValues.length);
+
+            // Find intersections with nodes
+            const intersects = this.raycaster.intersectObjects(nodeObjectValues);
+            console.log('Intersections found:', intersects.length);
+
+            if (intersects.length > 0) {
+                const clickedObject = intersects[0].object;
+                console.log('Clicked object:', clickedObject.userData);
+
+                // Safety check for valid userData
+                if (!clickedObject.userData || !clickedObject.userData.id) {
+                    console.error('Clicked object has invalid userData');
+                    return;
+                }
+
+                const nodeData = clickedObject.userData;
+
+                // Ignore clicks on library nodes
+                if (nodeData.path && nodeData.path.startsWith('library:')) {
+                    console.log('Ignoring click on library node');
+                    return;
+                }
+
+                // Transition to multi-panel view for the clicked file
+                console.log('Transitioning to multi-panel view for node:', nodeData.id);
+                try {
+                    this.showMultiPanelView(nodeData.id);
+                } catch (error) {
+                    console.error('Error showing multi-panel view:', error);
+                    // Reset state in case of error
+                    this.isPanelMode = false;
+                }
+            }
+        });
+    }
+
+    // Create and show the multi-panel view
+    showMultiPanelView(fileId) {
+        console.log(`Opening multi-panel view for ${fileId}`);
+
+        // Ensure the node exists in our data
+        if (!this.nodes[fileId]) {
+            console.error(`Cannot show multi-panel view - node ${fileId} not found`);
+            return;
+        }
+
+        try {
+            // Store current file
+            this.currentFile = fileId;
+            this.isPanelMode = true;
+
+            // Hide the main visualization
+            this.hideMainVisualization();
+
+            // Create panel container
+            const panelContainer = document.createElement('div');
+            panelContainer.id = 'multi-panel-container';
+            panelContainer.className = 'multi-panel-container';
+
+            // Create panels HTML structure with file name in header
+            panelContainer.innerHTML = `
+            <div class="panel-header">
+              <h2>
+                ${this.nodes[fileId].name}
+                <span class="file-type-badge ${this.nodes[fileId].type.substring(1)}">${this.nodes[fileId].type}</span>
+              </h2>
+              <button id="back-to-graph" class="btn btn-primary">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M19 12H5M12 19l-7-7 7-7"></path>
+                </svg>
+                Back to Graph
+              </button>
+            </div>
+            <div class="panels-container">
+              <div id="dependencies-panel" class="panel left-panel">
+                <div class="panel-title">
+                  <h3>Dependencies</h3>
+                  <div class="panel-controls">
+                    <button class="view-toggle" data-panel="dependencies-panel">
+                      <span class="view-2d active">2D</span>
+                      <span class="view-3d">3D</span>
+                    </button>
+                  </div>
+                </div>
+                <div class="panel-visualization" id="dependencies-panel-viz"></div>
+              </div>
+              <div class="resizer" id="left-resizer"></div>
+              <div id="methods-panel" class="panel center-panel">
+                <div class="panel-title">
+                  <h3>Methods</h3>
+                  <div class="panel-controls">
+                    <button class="view-toggle" data-panel="methods-panel">
+                      <span class="view-2d active">2D</span>
+                      <span class="view-3d">3D</span>
+                    </button>
+                  </div>
+                </div>
+                <div class="panel-visualization" id="methods-panel-viz"></div>
+              </div>
+              <div class="resizer" id="right-resizer"></div>
+              <div id="dependents-panel" class="panel right-panel">
+                <div class="panel-title">
+                  <h3>Dependents</h3>
+                  <div class="panel-controls">
+                    <button class="view-toggle" data-panel="dependents-panel">
+                      <span class="view-2d active">2D</span>
+                      <span class="view-3d">3D</span>
+                    </button>
+                  </div>
+                </div>
+                <div class="panel-visualization" id="dependents-panel-viz"></div>
+              </div>
+            </div>
+          `;
+
+            // Add to document
+            const container = document.getElementById('visualization-container');
+            if (!container) {
+                console.error('Visualization container not found');
+                return;
+            }
+
+            container.appendChild(panelContainer);
+            console.log('Panel container created and added to DOM');
+
+            // Hide any existing toggle buttons to avoid duplicates
+            const existingToggleBtn = document.getElementById('super-toggle-btn');
+            if (existingToggleBtn) {
+                existingToggleBtn.style.display = 'none';
+            }
+
+            // Set up back button
+            const backButton = document.getElementById('back-to-graph');
+            if (backButton) {
+                backButton.addEventListener('click', () => {
+                    console.log('Back to graph button clicked');
+                    this.closeMultiPanelView();
+                });
+            }
+
+            // Set up resizable panels
+            this.setupResizablePanels();
+
+            // Use requestAnimationFrame to ensure DOM is fully rendered before creating visualizations
+            requestAnimationFrame(() => {
+                // Create individual panel visualizations with a small delay
+                setTimeout(() => {
+                    this.createDependenciesPanel(fileId);
+                    this.createMethodsPanel(fileId);
+                    this.createDependentsPanel(fileId);
+
+                    // Set up right sidebar
+                    this.createSidebar(fileId);
+                }, 100);
+            });
+        } catch (error) {
+            console.error('Error showing multi-panel view:', error);
+            // Reset state in case of error
+            this.isPanelMode = false;
+
+            // Show main visualization again
+            this.showMainVisualization();
+        }
+    }
+
+    // 2. Implement the missing showMainVisualization method
+    showMainVisualization() {
+        // Show the Three.js canvas
+        if (this.renderer && this.renderer.domElement) {
+            this.renderer.domElement.style.display = '';
+        }
+
+        // Show controls/UI
+        const toggleBtn = document.getElementById('super-toggle-btn');
+        if (toggleBtn) {
+            toggleBtn.style.display = '';
+        }
+    }
+
+    // Hide main visualization
+    hideMainVisualization() {
+        // Hide the Three.js canvas temporarily
+        if (this.renderer && this.renderer.domElement) {
+            this.renderer.domElement.style.display = 'none';
+        }
+
+        // Hide controls/UI that aren't needed in panel mode
+        document.getElementById('sidebar').classList.add('sidebar-collapsed');
+
+        const toggleBtn = document.getElementById('super-toggle-btn');
+        if (toggleBtn) {
+            toggleBtn.style.display = 'none';
+        }
+    }
+
+    // Create a panel element
+    createPanel(id, title) {
+        const panel = document.getElementById(id);
+
+        // Add panel title
+        const titleEl = document.createElement('div');
+        titleEl.className = 'panel-title';
+        titleEl.innerHTML = `
+      <h3>${title}</h3>
+      <div class="panel-controls">
+        <button class="view-toggle" data-panel="${id}">
+          <span class="view-2d active">2D</span>
+          <span class="view-3d">3D</span>
+        </button>
+      </div>
+    `;
+        panel.appendChild(titleEl);
+
+        // Add visualization container
+        const vizContainer = document.createElement('div');
+        vizContainer.className = 'panel-visualization';
+        vizContainer.id = `${id}-viz`;
+        panel.appendChild(vizContainer);
+
+        return panel;
+    }
+
+    // Set up resizable panels
+    setupResizablePanels() {
+        const leftResizer = document.getElementById('left-resizer');
+        const rightResizer = document.getElementById('right-resizer');
+        const panelsContainer = document.querySelector('.panels-container');
+
+        if (!leftResizer || !rightResizer || !panelsContainer) {
+            console.error('Resizer elements or panels container not found');
+            return;
+        }
+
+        console.log('Setting up resizable panels');
+
+        // Left resizer between dependencies and methods
+        leftResizer.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            document.addEventListener('mousemove', resizeLeft);
+            document.addEventListener('mouseup', stopResize);
+
+            // Add grabbing cursor to indicate resize is active
+            document.body.style.cursor = 'col-resize';
+            leftResizer.classList.add('active');
+        });
+
+        // Right resizer between methods and dependents
+        rightResizer.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            document.addEventListener('mousemove', resizeRight);
+            document.addEventListener('mouseup', stopResize);
+
+            // Add grabbing cursor to indicate resize is active
+            document.body.style.cursor = 'col-resize';
+            rightResizer.classList.add('active');
+        });
+
+        function resizeLeft(e) {
+            const containerRect = panelsContainer.getBoundingClientRect();
+            const x = e.clientX - containerRect.left;
+            const containerWidth = containerRect.width;
+
+            // Ensure minimum widths
+            const minWidth = 100;
+            const maxLeftWidth = containerWidth - minWidth * 2;
+
+            // Calculate percentages with constraints
+            let leftWidth = (x / containerWidth) * 100;
+            leftWidth = Math.min(Math.max(leftWidth, 10), 80); // Keep between 10% and 80%
+
+            const rightPanel = document.querySelector('.right-panel');
+            const rightWidth = parseFloat(rightPanel.style.width || '33.33');
+
+            const centerWidth = 100 - leftWidth - rightWidth;
+
+            // Apply new widths
+            document.querySelector('.left-panel').style.width = `${leftWidth}%`;
+            document.querySelector('.center-panel').style.width = `${centerWidth}%`;
+
+            // Trigger resize event for Three.js renderers
+            window.dispatchEvent(new Event('resize'));
+        }
+
+        function resizeRight(e) {
+            const containerRect = panelsContainer.getBoundingClientRect();
+            const x = e.clientX - containerRect.left;
+            const containerWidth = containerRect.width;
+
+            // Calculate percentages based on right resizer position
+            const rightWidth = 100 - ((x / containerWidth) * 100);
+
+            // Ensure minimum widths
+            const constrainedRightWidth = Math.min(Math.max(rightWidth, 10), 80);
+
+            const leftPanel = document.querySelector('.left-panel');
+            const leftWidth = parseFloat(leftPanel.style.width || '33.33');
+
+            const centerWidth = 100 - leftWidth - constrainedRightWidth;
+
+            // Apply new widths
+            document.querySelector('.center-panel').style.width = `${centerWidth}%`;
+            document.querySelector('.right-panel').style.width = `${constrainedRightWidth}%`;
+
+            // Trigger resize event for Three.js renderers
+            window.dispatchEvent(new Event('resize'));
+        }
+
+        function stopResize() {
+            document.removeEventListener('mousemove', resizeLeft);
+            document.removeEventListener('mousemove', resizeRight);
+
+            // Reset cursor
+            document.body.style.cursor = '';
+            leftResizer.classList.remove('active');
+            rightResizer.classList.remove('active');
+
+            // Final resize event for good measure
+            window.dispatchEvent(new Event('resize'));
+        }
+    }
+
+    // Create the dependencies panel visualization (left panel)
+    createDependenciesPanel(fileId) {
+        const container = document.getElementById('dependencies-panel-viz');
+
+        if (!container) {
+            console.error('Dependencies panel visualization container not found');
+            return;
+        }
+
+        // Add loading indicator
+        const loadingDiv = document.createElement('div');
+        loadingDiv.className = 'panel-loading';
+        loadingDiv.innerHTML = '<div class="panel-loading-spinner"></div>';
+        container.appendChild(loadingDiv);
+
+        // Get dependencies of this file
+        const dependencies = this.dependencies[fileId] || [];
+
+        // Check for empty state
+        if (dependencies.length === 0) {
+            // Remove loading indicator
+            loadingDiv.remove();
+
+            // Show empty state
+            this.showEmptyState(container, 'dependencies', 'This file does not import any other files or libraries.');
+            return;
+        }
+
+        // Continue with dependencies panel creation
+        try {
+            // Get container dimensions with fallbacks
+            const width = container.clientWidth || 400;
+            const height = container.clientHeight || 300;
+
+            console.log(`Creating dependencies panel with dimensions: ${width}x${height}`);
+
+            // Create Three.js scene
+            const scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x1e293b);
+
+            // Create camera
+            const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+            camera.position.z = 300;
+
+            // Create renderer
+            const renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(width, height);
+
+            // Remove loading indicator
+            loadingDiv.remove();
+
+            // Clear container and add renderer
+            container.innerHTML = '';
+            container.appendChild(renderer.domElement);
+
+            // Create controls
+            const controls = new TrackballControls(camera, renderer.domElement);
+            controls.rotateSpeed = 1.5;
+            controls.zoomSpeed = 1.2;
+            controls.panSpeed = 2.0;
+
+            // Create nodes for each dependency
+            const nodes = {};
+            const nodeObjects = {};
+
+            // Add a center node for the current file
+            const centerNodeId = fileId + '_center';
+            nodes[centerNodeId] = {
+                id: centerNodeId,
+                name: this.nodes[fileId].name,
+                type: this.nodes[fileId].type,
+                size: this.nodes[fileId].size * 0.9, // Slightly bigger
+                path: this.nodes[fileId].path,
+                isCenter: true
+            };
+
+            // Determine color for center node
+            let centerColor;
+            if (fileId.startsWith('library:')) {
+                centerColor = this.colorMap['library'];
+            } else {
+                const ext = this.nodes[fileId].type.toLowerCase();
+                centerColor = this.colorMap[ext] || 0xffffff;
+            }
+
+            // Create sphere for center node
+            const centerGeometry = new THREE.SphereGeometry(nodes[centerNodeId].size, 32, 32);
+            const centerMaterial = new THREE.MeshPhongMaterial({
+                color: centerColor,
+                shininess: 70,
+                specular: 0x111111,
+                emissive: 0x222222 // Slightly glowing
+            });
+            const centerSphere = new THREE.Mesh(centerGeometry, centerMaterial);
+
+            // Position at center
+            centerSphere.position.set(0, 0, 0);
+
+            centerSphere.userData = {
+                type: 'node',
+                id: centerNodeId,
+                ...nodes[centerNodeId],
+                isCurrentFile: true
+            };
+
+            scene.add(centerSphere);
+            nodeObjects[centerNodeId] = centerSphere;
+
+            // Create links array to track connections
+            const links = [];
+
+            // Add dependency nodes
+            dependencies.forEach(depId => {
+                const depNode = this.nodes[depId];
+                if (!depNode) return;
+
+                // Create node data
+                nodes[depId] = {
+                    id: depId,
+                    name: depNode.name,
+                    type: depNode.type,
+                    size: depNode.size * 0.7, // Smaller than main graph
+                    path: depNode.path
+                };
+
+                // Determine color
+                let color;
+                if (depId.startsWith('library:')) {
+                    color = this.colorMap['library'];
+                } else {
+                    const ext = depNode.type.toLowerCase();
+                    color = this.colorMap[ext] || 0xffffff;
+                }
+
+                // Create spheres for nodes
+                const geometry = new THREE.SphereGeometry(nodes[depId].size, 32, 32);
+                const material = new THREE.MeshPhongMaterial({
+                    color,
+                    shininess: 70,
+                    specular: 0x111111
+                });
+                const sphere = new THREE.Mesh(geometry, material);
+
+                // Position randomly initially in a circle around center
+                const angle = Math.random() * Math.PI * 2;
+                const radius = 100 + Math.random() * 50;
+                sphere.position.set(
+                    Math.cos(angle) * radius,
+                    Math.sin(angle) * radius,
+                    (Math.random() - 0.5) * 50 // Small z variation
+                );
+
+                sphere.userData = { type: 'node', id: depId, ...nodes[depId] };
+
+                scene.add(sphere);
+                nodeObjects[depId] = sphere;
+
+                // Create label for the node
+                this.createPanelLabel(nodes[depId], sphere, scene);
+
+                // Add link from center to this dependency
+                links.push({
+                    source: centerNodeId,
+                    target: depId
+                });
+            });
+
+            // Create labels - also create one for the center node
+            this.createPanelLabel(nodes[centerNodeId], centerSphere, scene);
+
+            // Create connections
+            const linkObjects = [];
+            links.forEach(link => {
+                const sourceObj = nodeObjects[link.source];
+                const targetObj = nodeObjects[link.target];
+
+                if (!sourceObj || !targetObj) return;
+
+                // Create curved line for better visibility
+                const sourcePos = sourceObj.position;
+                const targetPos = targetObj.position;
+
+                // Create curved path
+                const midPoint = new THREE.Vector3(
+                    (sourcePos.x + targetPos.x) / 2,
+                    (sourcePos.y + targetPos.y) / 2,
+                    (sourcePos.z + targetPos.z) / 2 + 15 // Raise curve slightly
+                );
+
+                // Create quadratic bezier curve
+                const curve = new THREE.QuadraticBezierCurve3(
+                    sourcePos.clone(),
+                    midPoint,
+                    targetPos.clone()
+                );
+
+                const points = curve.getPoints(20);
+                const geometry = new THREE.BufferGeometry().setFromPoints(points);
+
+                // Create line with color based on target type
+                let lineColor;
+                if (link.target.startsWith('library:')) {
+                    lineColor = 0xaaaaaa; // Gray for libraries
+                } else {
+                    // Get file extension
+                    const targetType = nodes[link.target].type.toLowerCase();
+                    // Use a lighter version of the node color
+                    lineColor = this.colorMap[targetType] || 0x94a3b8;
+                }
+
+                const material = new THREE.LineBasicMaterial({
+                    color: lineColor,
+                    transparent: true,
+                    opacity: 0.6
+                });
+
+                const line = new THREE.Line(geometry, material);
+                line.userData = {
+                    type: 'link',
+                    source: link.source,
+                    target: link.target
+                };
+
+                scene.add(line);
+                linkObjects.push(line);
+
+                // Add arrow at target end to show direction
+                if (this.directed) {
+                    // Get the last two points to determine direction
+                    const lastPoint = points[points.length - 1];
+                    const secondLastPoint = points[points.length - 2];
+
+                    // Calculate direction vector
+                    const dir = new THREE.Vector3().subVectors(lastPoint, secondLastPoint).normalize();
+
+                    // Create arrow
+                    const arrowLength = 5;
+                    const arrowWidth = 2;
+
+                    const arrowTip = targetPos.clone().sub(dir.clone().multiplyScalar(nodes[link.target].size));
+                    const arrowBase = arrowTip.clone().sub(dir.clone().multiplyScalar(arrowLength));
+
+                    // Create perpendicular vector for arrow wings
+                    const perpDir = new THREE.Vector3(-dir.y, dir.x, 0).normalize().multiplyScalar(arrowWidth);
+
+                    const arrowLeft = arrowBase.clone().add(perpDir);
+                    const arrowRight = arrowBase.clone().sub(perpDir);
+
+                    // Create arrow geometry
+                    const arrowGeometry = new THREE.BufferGeometry();
+                    const vertices = new Float32Array([
+                        arrowTip.x, arrowTip.y, arrowTip.z,
+                        arrowLeft.x, arrowLeft.y, arrowLeft.z,
+                        arrowRight.x, arrowRight.y, arrowRight.z
+                    ]);
+
+                    arrowGeometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+
+                    const arrowMaterial = new THREE.MeshBasicMaterial({
+                        color: lineColor,
+                        side: THREE.DoubleSide
+                    });
+
+                    const arrow = new THREE.Mesh(arrowGeometry, arrowMaterial);
+
+                    scene.add(arrow);
+                    linkObjects.push(arrow); // Add to link objects for cleanup
+                }
+            });
+
+            // Add lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            scene.add(ambientLight);
+
+            const pointLight = new THREE.PointLight(0xffffff, 1);
+            pointLight.position.set(100, 100, 100);
+            scene.add(pointLight);
+
+            // Apply force-directed layout for nicer positioning while keeping center node fixed
+            this.applyRadialForceLayout(centerNodeId, nodes, nodeObjects, links);
+
+            // Create panel tooltip for node hover
+            const tooltip = document.createElement('div');
+            tooltip.className = 'panel-tooltip';
+            container.appendChild(tooltip);
+
+            // Add hover effect for nodes
+            const raycaster = new THREE.Raycaster();
+            const mouse = new THREE.Vector2();
+
+            container.addEventListener('mousemove', (event) => {
+                if (!this.isPanelMode) return;
+
+                // Calculate mouse position
+                const rect = container.getBoundingClientRect();
+                mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+                mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+                // Update raycaster
+                raycaster.setFromCamera(mouse, camera);
+
+                // Find intersections
+                const intersects = raycaster.intersectObjects(Object.values(nodeObjects));
+
+                // Reset all nodes and links
+                Object.values(nodeObjects).forEach(node => {
+                    if (!node.userData.isCurrentFile) { // Keep center node highlighted
+                        node.material.emissive.setHex(0x000000);
+                    }
+                });
+
+                linkObjects.forEach(link => {
+                    link.material.opacity = 0.3;
+                });
+
+                // Hide tooltip by default
+                tooltip.classList.remove('visible');
+
+                if (intersects.length > 0) {
+                    // Highlight intersected node
+                    const obj = intersects[0].object;
+                    const nodeId = obj.userData.id;
+
+                    if (!obj.userData.isCurrentFile) { // Don't modify center node highlight
+                        obj.material.emissive.setHex(0x333333);
+                    }
+
+                    // Highlight connections to this node
+                    linkObjects.forEach(link => {
+                        if (link.userData && (link.userData.source === nodeId || link.userData.target === nodeId)) {
+                            link.material.opacity = 0.8;
+                        }
+                    });
+
+                    // Show tooltip
+                    const nodeData = obj.userData;
+                    tooltip.innerHTML = `
+                <div>${nodeData.name}</div>
+                <div style="font-size: 0.7rem; opacity: 0.7;">${nodeData.path}</div>
+                ${nodeData.isCurrentFile ? '<div style="font-size: 0.7rem; color: #6366F1;">Current File</div>' : ''}
+              `;
+                    tooltip.style.left = `${event.clientX - rect.left + 10}px`;
+                    tooltip.style.top = `${event.clientY - rect.top + 10}px`;
+                    tooltip.classList.add('visible');
+                }
+            });
+
+            // Add click handler for dependency nodes to navigate to their details
+            container.addEventListener('click', (event) => {
+                if (!this.isPanelMode) return;
+
+                // Calculate mouse position
+                const rect = container.getBoundingClientRect();
+                mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+                mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+                // Update raycaster
+                raycaster.setFromCamera(mouse, camera);
+
+                // Find intersections
+                const intersects = raycaster.intersectObjects(Object.values(nodeObjects));
+
+                if (intersects.length > 0) {
+                    const obj = intersects[0].object;
+                    const depId = obj.userData.id;
+
+                    // Skip the center node (current file)
+                    if (obj.userData.isCurrentFile) return;
+
+                    // Skip library nodes
+                    if (depId.startsWith('library:')) {
+                        this.showTooltip('Cannot navigate to external library', {
+                            x: window.innerWidth / 2,
+                            y: window.innerHeight / 2
+                        }, 1500);
+                        return;
+                    }
+
+                    // Show info toast
+                    this.showTooltip(`Navigating to ${obj.userData.name}...`, {
+                        x: window.innerWidth / 2,
+                        y: window.innerHeight / 2
+                    }, 1500);
+
+                    // Close current panels and open new ones for this dependency file
+                    setTimeout(() => {
+                        this.closeMultiPanelView();
+                        this.showMultiPanelView(depId.replace('_center', '')); // Remove center suffix if present
+                    }, 300);
+                }
+            });
+
+            // Update line positions when nodes move
+            const updateLines = () => {
+                linkObjects.forEach(lineObj => {
+                    // Skip non-lines or lines without proper userData
+                    if (!lineObj.userData || !lineObj.userData.source || !lineObj.userData.target) return;
+                    if (lineObj.geometry.type !== 'BufferGeometry') return;
+
+                    const sourceObj = nodeObjects[lineObj.userData.source];
+                    const targetObj = nodeObjects[lineObj.userData.target];
+
+                    if (!sourceObj || !targetObj) return;
+
+                    // For regular lines
+                    if (lineObj.type === 'Line') {
+                        const sourcePos = sourceObj.position;
+                        const targetPos = targetObj.position;
+
+                        // Create curved path
+                        const midPoint = new THREE.Vector3(
+                            (sourcePos.x + targetPos.x) / 2,
+                            (sourcePos.y + targetPos.y) / 2,
+                            (sourcePos.z + targetPos.z) / 2 + 15
+                        );
+
+                        // Create quadratic bezier curve
+                        const curve = new THREE.QuadraticBezierCurve3(
+                            sourcePos.clone(),
+                            midPoint,
+                            targetPos.clone()
+                        );
+
+                        const points = curve.getPoints(20);
+                        lineObj.geometry.setFromPoints(points);
+                    }
+                    // For arrow meshes we need to update their position and rotation
+                    else if (lineObj.type === 'Mesh') {
+                        // This is more complex and would require recreating the arrow geometry
+                        // For simplicity, we hide arrows during camera movement
+                        lineObj.visible = false;
+                    }
+                });
+            };
+
+            // Animation loop with cleanup check
+            function animate() {
+                if (!renderer.domElement.isConnected) {
+                    // Stop animation if element is removed from DOM
+                    return;
+                }
+
+                requestAnimationFrame(animate);
+                updateLines();
+                controls.update();
+                renderer.render(scene, camera);
+            }
+            animate();
+
+            // Store panel data
+            this.panels.dependencies = {
+                scene,
+                camera,
+                renderer,
+                controls,
+                nodes,
+                nodeObjects,
+                links,
+                linkObjects
+            };
+
+            // Handle resize
+            const resizeHandler = () => {
+                if (!this.isPanelMode || !renderer.domElement.isConnected) return;
+
+                const newWidth = container.clientWidth;
+                const newHeight = container.clientHeight;
+
+                if (newWidth > 0 && newHeight > 0) {
+                    camera.aspect = newWidth / newHeight;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(newWidth, newHeight);
+                }
+            };
+
+            window.addEventListener('resize', resizeHandler);
+
+            // Add method to handle view toggling (2D/3D)
+            this.panels.dependencies.setViewMode = (mode) => {
+                if (mode === '2d') {
+                    // Flatten nodes to z=0
+                    Object.values(nodeObjects).forEach(node => {
+                        const pos = node.position;
+                        node.position.set(pos.x, pos.y, 0);
+                    });
+
+                    // Disable rotation
+                    controls.noRotate = true;
+                } else {
+                    // Re-apply 3D positions with radial layout
+                    this.applyRadialForceLayout(centerNodeId, nodes, nodeObjects, links, true);
+
+                    // Enable rotation
+                    controls.noRotate = false;
+                }
+            };
+
+        } catch (error) {
+            console.error('Error creating dependencies panel:', error);
+
+            // Remove loading indicator
+            loadingDiv.remove();
+
+            // Show error state
+            this.showEmptyState(container, 'dependencies', 'Error creating dependencies visualization.');
+        }
+    }
+
+    // Helper method for radial force layout
+    applyRadialForceLayout(centerNodeId, nodes, nodeObjects, links, use3D = false) {
+        // Skip if no nodes
+        if (Object.keys(nodes).length === 0) return;
+
+        // Start with current positions
+        Object.entries(nodes).forEach(([id, node]) => {
+            const obj = nodeObjects[id];
+            if (!obj) return;
+
+            node.x = obj.position.x;
+            node.y = obj.position.y;
+            node.z = use3D ? obj.position.z : 0;
+
+            // Initialize forces
+            node.forceX = 0;
+            node.forceY = 0;
+            node.forceZ = 0;
+        });
+
+        // Apply radial layout forces
+        const iterations = 50;
+        const repulsionForce = 600;
+        const centralAttractionForce = 0.3;
+
+        for (let i = 0; i < iterations; i++) {
+            // Calculate repulsion forces between all nodes
+            Object.entries(nodes).forEach(([idA, nodeA]) => {
+                if (idA === centerNodeId) return; // Skip center node for repulsion
+
+                Object.entries(nodes).forEach(([idB, nodeB]) => {
+                    if (idA === idB) return;
+                    if (idB === centerNodeId) return; // Skip center node for repulsion
+
+                    const dx = nodeA.x - nodeB.x;
+                    const dy = nodeA.y - nodeB.y;
+                    const dz = use3D ? nodeA.z - nodeB.z : 0;
+
+                    const distance = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
+
+                    const force = repulsionForce / (distance * distance);
+
+                    nodeA.forceX += (dx / distance) * force;
+                    nodeA.forceY += (dy / distance) * force;
+                    if (use3D) nodeA.forceZ += (dz / distance) * force;
+                });
+
+                // Add central attraction to center node
+                const centerNode = nodes[centerNodeId];
+                const dx = nodeA.x - centerNode.x;
+                const dy = nodeA.y - centerNode.y;
+                const dz = use3D ? nodeA.z - centerNode.z : 0;
+
+                const distance = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
+
+                // Stronger attraction to center
+                nodeA.forceX -= dx * centralAttractionForce;
+                nodeA.forceY -= dy * centralAttractionForce;
+                if (use3D) nodeA.forceZ -= dz * centralAttractionForce;
+            });
+
+            // Apply link-based forces
+            links.forEach(link => {
+                if (link.source === centerNodeId && nodeObjects[link.target]) {
+                    // Apply weaker force from center to connected nodes to create a nice radial layout
+                    const targetNode = nodes[link.target];
+                    const centerNode = nodes[centerNodeId];
+
+                    const dx = targetNode.x - centerNode.x;
+                    const dy = targetNode.y - centerNode.y;
+                    const dz = use3D ? targetNode.z - centerNode.z : 0;
+
+                    const distance = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
+
+                    // Only apply if too close or too far
+                    if (distance < 50 || distance > 150) {
+                        const idealDistance = 100;
+                        const force = (distance - idealDistance) * 0.03;
+
+                        targetNode.forceX -= (dx / distance) * force;
+                        targetNode.forceY -= (dy / distance) * force;
+                        if (use3D) targetNode.forceZ -= (dz / distance) * force;
+                    }
+                }
+            });
+
+            // Apply forces
+            const cooling = 1 - (i / iterations);
+            Object.entries(nodes).forEach(([id, node]) => {
+                if (id === centerNodeId) return; // Keep center node fixed
+
+                node.x += node.forceX * cooling;
+                node.y += node.forceY * cooling;
+                if (use3D) node.z += node.forceZ * cooling;
+
+                // Update node object position
+                if (nodeObjects[id]) {
+                    nodeObjects[id].position.set(
+                        node.x,
+                        node.y,
+                        use3D ? node.z : 0
+                    );
+                }
+
+                // Clear forces for next iteration
+                node.forceX = 0;
+                node.forceY = 0;
+                node.forceZ = 0;
+            });
+        }
+    }
+
+    // Helper method for simple force layout (if not already defined)
+    applySimpleForceLayout(nodes, nodeObjects, use3D = false) {
+        // Skip if no nodes
+        if (nodes.length === 0) return;
+
+        // Start with current positions
+        nodes.forEach(node => {
+            const obj = nodeObjects[node.id];
+            if (!obj) return;
+
+            node.x = obj.position.x;
+            node.y = obj.position.y;
+            node.z = use3D ? obj.position.z : 0;
+
+            // Initialize forces
+            node.forceX = 0;
+            node.forceY = 0;
+            node.forceZ = 0;
+        });
+
+        // Apply simple repulsion forces for a circular layout
+        const iterations = 50;
+        const repulsionForce = 800;
+
+        for (let i = 0; i < iterations; i++) {
+            // Calculate repulsion forces
+            nodes.forEach(nodeA => {
+                nodes.forEach(nodeB => {
+                    if (nodeA.id === nodeB.id) return;
+
+                    const dx = nodeA.x - nodeB.x;
+                    const dy = nodeA.y - nodeB.y;
+                    const dz = use3D ? nodeA.z - nodeB.z : 0;
+
+                    const distance = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
+
+                    const force = repulsionForce / (distance * distance);
+
+                    nodeA.forceX += (dx / distance) * force;
+                    nodeA.forceY += (dy / distance) * force;
+                    if (use3D) nodeA.forceZ += (dz / distance) * force;
+                });
+
+                // Add a centering force
+                const centeringForce = 0.05;
+                nodeA.forceX -= nodeA.x * centeringForce;
+                nodeA.forceY -= nodeA.y * centeringForce;
+                if (use3D) nodeA.forceZ -= nodeA.z * centeringForce;
+            });
+
+            // Apply forces
+            const cooling = 1 - (i / iterations);
+            nodes.forEach(node => {
+                node.x += node.forceX * cooling;
+                node.y += node.forceY * cooling;
+                if (use3D) node.z += node.forceZ * cooling;
+
+                // Update node object position
+                if (nodeObjects[node.id]) {
+                    nodeObjects[node.id].position.set(
+                        node.x,
+                        node.y,
+                        use3D ? node.z : 0
+                    );
+                }
+
+                // Clear forces for next iteration
+                node.forceX = 0;
+                node.forceY = 0;
+                node.forceZ = 0;
+            });
+        }
+    }
+
+    // Create the methods panel visualization (center panel)
+    createMethodsPanel(fileId) {
+        const container = document.getElementById('methods-panel-viz');
+
+        // Create Three.js scene similar to dependencies panel
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x1e293b);
+
+        const width = container.clientWidth;
+        const height = container.clientHeight;
+
+        const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+        camera.position.z = 300;
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(width, height);
+        container.appendChild(renderer.domElement);
+
+        const controls = new TrackballControls(camera, renderer.domElement);
+        controls.rotateSpeed = 1.5;
+        controls.zoomSpeed = 1.2;
+        controls.panSpeed = 2.0;
+
+        // Get methods for this file
+        const fileMethods = this.methodData[fileId]?.methods || [];
+        const methodDeps = this.methodDependencies[fileId] || {};
+
+        // Create nodes for each method
+        const nodes = {};
+        const nodeObjects = {};
+        const links = [];
+        const linkObjects = [];
+
+        // Create method nodes
+        fileMethods.forEach(method => {
+            // Create node data
+            const nodeId = method.name;
+            nodes[nodeId] = {
+                id: nodeId,
+                name: method.name,
+                type: method.type,
+                class: method.class,
+                params: method.params || [],
+                size: 5 // Base size
+            };
+
+            // Different colors for different method types
+            let color;
+            if (method.type === 'method') {
+                color = 0x6366F1; // Primary color for class methods
+            } else if (method.type === 'arrow') {
+                color = 0x10B981; // Green for arrow functions
+            } else {
+                color = 0x0EA5E9; // Blue for regular functions
+            }
+
+            // Create sphere for node
+            const geometry = new THREE.SphereGeometry(nodes[nodeId].size, 32, 32);
+            const material = new THREE.MeshPhongMaterial({
+                color,
+                shininess: 70,
+                specular: 0x111111
+            });
+            const sphere = new THREE.Mesh(geometry, material);
+
+            // Position randomly initially
+            sphere.position.set(
+                (Math.random() - 0.5) * 200,
+                (Math.random() - 0.5) * 200,
+                0 // Flat layout by default
+            );
+
+            sphere.userData = { type: 'method', id: nodeId, ...nodes[nodeId] };
+
+            scene.add(sphere);
+            nodeObjects[nodeId] = sphere;
+        });
+
+        // Create links between methods based on dependencies
+        Object.keys(methodDeps).forEach(source => {
+            const targets = methodDeps[source] || [];
+
+            targets.forEach(target => {
+                // Only create links for local method calls
+                if (target.type === 'local' && nodeObjects[source] && nodeObjects[target.name]) {
+                    links.push({
+                        source,
+                        target: target.name
+                    });
+
+                    // Create line geometry
+                    const sourcePos = nodeObjects[source].position;
+                    const targetPos = nodeObjects[target.name].position;
+
+                    const points = [
+                        new THREE.Vector3(sourcePos.x, sourcePos.y, sourcePos.z),
+                        new THREE.Vector3(targetPos.x, targetPos.y, targetPos.z)
+                    ];
+
+                    const lineGeometry = new THREE.BufferGeometry().setFromPoints(points);
+                    const lineMaterial = new THREE.LineBasicMaterial({
+                        color: 0x94a3b8,
+                        transparent: true,
+                        opacity: 0.5
+                    });
+                    const line = new THREE.Line(lineGeometry, lineMaterial);
+
+                    line.userData = {
+                        type: 'link',
+                        source,
+                        target: target.name
+                    };
+
+                    scene.add(line);
+                    linkObjects.push(line);
+                }
+            });
+        });
+
+        // Add light
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(ambientLight);
+
+        const pointLight = new THREE.PointLight(0xffffff, 1);
+        pointLight.position.set(100, 100, 100);
+        scene.add(pointLight);
+
+        // Apply force-directed layout for nicer positioning
+        const nodeArray = Object.values(nodes);
+        this.applyForceDirectedLayout(nodeArray, links, nodeObjects, scene);
+
+        // Animation loop with link position updates
+        const updateLinks = () => {
+            // Update link positions
+            linkObjects.forEach(link => {
+                const sourceId = link.userData.source;
+                const targetId = link.userData.target;
+
+                if (nodeObjects[sourceId] && nodeObjects[targetId]) {
+                    const sourcePos = nodeObjects[sourceId].position;
+                    const targetPos = nodeObjects[targetId].position;
+
+                    // Update line points
+                    const positions = new Float32Array([
+                        sourcePos.x, sourcePos.y, sourcePos.z,
+                        targetPos.x, targetPos.y, targetPos.z
+                    ]);
+
+                    link.geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+                    link.geometry.attributes.position.needsUpdate = true;
+                }
+            });
+        };
+
+        function animate() {
+            requestAnimationFrame(animate);
+            updateLinks();
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // Store panel data for later reference
+        this.panels.methods = {
+            scene,
+            camera,
+            renderer,
+            controls,
+            nodes,
+            nodeObjects,
+            links,
+            linkObjects
+        };
+
+        // Add resize handler
+        window.addEventListener('resize', () => {
+            if (!this.isPanelMode) return;
+
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+            renderer.setSize(width, height);
+        });
+
+        // Add hover effect for methods
+        container.addEventListener('mousemove', (event) => {
+            if (!this.isPanelMode) return;
+
+            const rect = container.getBoundingClientRect();
+            const mouseX = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            const mouseY = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+            const mouse = new THREE.Vector2(mouseX, mouseY);
+            const raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(mouse, camera);
+
+            const intersects = raycaster.intersectObjects(Object.values(nodeObjects));
+
+            // Reset all nodes to normal
+            Object.values(nodeObjects).forEach(node => {
+                node.material.emissive.setHex(0x000000);
+            });
+
+            // Reset all links to normal
+            linkObjects.forEach(link => {
+                link.material.color.setHex(0x94a3b8);
+                link.material.opacity = 0.3;
+            });
+
+            if (intersects.length > 0) {
+                const obj = intersects[0].object;
+                const methodId = obj.userData.id;
+
+                // Highlight the hovered method
+                obj.material.emissive.setHex(0x333333);
+
+                // Highlight connected methods and links
+                linkObjects.forEach(link => {
+                    if (link.userData.source === methodId || link.userData.target === methodId) {
+                        link.material.color.setHex(0x6366F1);
+                        link.material.opacity = 0.8;
+
+                        // Highlight connected nodes
+                        const connectedId = link.userData.source === methodId ?
+                            link.userData.target : link.userData.source;
+
+                        if (nodeObjects[connectedId]) {
+                            nodeObjects[connectedId].material.emissive.setHex(0x222222);
+                        }
+                    }
+                });
+            }
+        });
+    }
+
+    // Create the dependents panel visualization (right panel)
+
+    createDependentsPanel(fileId) {
+        const container = document.getElementById('dependents-panel-viz');
+
+        if (!container) {
+            console.error('Dependents panel visualization container not found');
+            return;
+        }
+
+        // Add loading indicator
+        const loadingDiv = document.createElement('div');
+        loadingDiv.className = 'panel-loading';
+        loadingDiv.innerHTML = '<div class="panel-loading-spinner"></div>';
+        container.appendChild(loadingDiv);
+
+        // Get dependents of this file (files that import it)
+        const dependents = this.dependents[fileId] || [];
+
+        // Check for empty state
+        if (dependents.length === 0) {
+            // Remove loading indicator
+            loadingDiv.remove();
+
+            // Show empty state
+            this.showEmptyState(container, 'dependents', 'No other files import this file.');
+            return;
+        }
+
+        // Continue with dependents panel creation
+        try {
+            // Get container dimensions with fallbacks
+            const width = container.clientWidth || 400;
+            const height = container.clientHeight || 300;
+
+            console.log(`Creating dependents panel with dimensions: ${width}x${height}`);
+
+            // Create Three.js scene
+            const scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x1e293b);
+
+            // Create camera
+            const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+            camera.position.z = 300;
+
+            // Create renderer
+            const renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(width, height);
+
+            // Remove loading indicator
+            loadingDiv.remove();
+
+            // Clear container and add renderer
+            container.innerHTML = '';
+            container.appendChild(renderer.domElement);
+
+            // Create controls
+            const controls = new TrackballControls(camera, renderer.domElement);
+            controls.rotateSpeed = 1.5;
+            controls.zoomSpeed = 1.2;
+            controls.panSpeed = 2.0;
+
+            // Create nodes for each dependent
+            const nodes = {};
+            const nodeObjects = {};
+
+            dependents.forEach(depId => {
+                const depNode = this.nodes[depId];
+                if (!depNode) return;
+
+                // Create node data
+                nodes[depId] = {
+                    id: depId,
+                    name: depNode.name,
+                    type: depNode.type,
+                    size: depNode.size * 0.7, // Smaller than main graph
+                    path: depNode.path
+                };
+
+                // Determine color
+                let color;
+                if (depId.startsWith('library:')) {
+                    color = this.colorMap['library'];
+                } else {
+                    const ext = depNode.type.toLowerCase();
+                    color = this.colorMap[ext] || 0xffffff;
+                }
+
+                // Create spheres for nodes
+                const geometry = new THREE.SphereGeometry(nodes[depId].size, 32, 32);
+                const material = new THREE.MeshPhongMaterial({
+                    color,
+                    shininess: 70,
+                    specular: 0x111111
+                });
+                const sphere = new THREE.Mesh(geometry, material);
+
+                // Position randomly initially
+                sphere.position.set(
+                    (Math.random() - 0.5) * 200,
+                    (Math.random() - 0.5) * 200,
+                    (Math.random() - 0.5) * 200
+                );
+
+                sphere.userData = { type: 'node', id: depId, ...nodes[depId] };
+
+                scene.add(sphere);
+                nodeObjects[depId] = sphere;
+
+                // Create label for the node
+                this.createPanelLabel(nodes[depId], sphere, scene);
+            });
+
+            // Add lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            scene.add(ambientLight);
+
+            const pointLight = new THREE.PointLight(0xffffff, 1);
+            pointLight.position.set(100, 100, 100);
+            scene.add(pointLight);
+
+            // Apply force-directed layout for nicer positioning
+            const nodeArray = Object.values(nodes);
+            const links = []; // No links for simple dependents view
+
+            // Apply force-directed layout
+            this.applySimpleForceLayout(nodeArray, nodeObjects);
+
+            // Create panel tooltip for node hover
+            const tooltip = document.createElement('div');
+            tooltip.className = 'panel-tooltip';
+            container.appendChild(tooltip);
+
+            // Add hover effect for nodes
+            const raycaster = new THREE.Raycaster();
+            const mouse = new THREE.Vector2();
+
+            container.addEventListener('mousemove', (event) => {
+                if (!this.isPanelMode) return;
+
+                // Calculate mouse position
+                const rect = container.getBoundingClientRect();
+                mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+                mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+                // Update raycaster
+                raycaster.setFromCamera(mouse, camera);
+
+                // Find intersections
+                const intersects = raycaster.intersectObjects(Object.values(nodeObjects));
+
+                // Reset nodes
+                Object.values(nodeObjects).forEach(node => {
+                    node.material.emissive.setHex(0x000000);
+                });
+
+                // Hide tooltip by default
+                tooltip.classList.remove('visible');
+
+                if (intersects.length > 0) {
+                    // Highlight intersected node
+                    const obj = intersects[0].object;
+                    obj.material.emissive.setHex(0x333333);
+
+                    // Show tooltip
+                    const nodeData = obj.userData;
+                    tooltip.innerHTML = `
+            <div>${nodeData.name}</div>
+            <div style="font-size: 0.7rem; opacity: 0.7;">${nodeData.path}</div>
+          `;
+                    tooltip.style.left = `${event.clientX - rect.left + 10}px`;
+                    tooltip.style.top = `${event.clientY - rect.top + 10}px`;
+                    tooltip.classList.add('visible');
+                }
+            });
+
+            // Add click handler for dependent nodes to navigate to their details
+            container.addEventListener('click', (event) => {
+                if (!this.isPanelMode) return;
+
+                // Calculate mouse position
+                const rect = container.getBoundingClientRect();
+                mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+                mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+                // Update raycaster
+                raycaster.setFromCamera(mouse, camera);
+
+                // Find intersections
+                const intersects = raycaster.intersectObjects(Object.values(nodeObjects));
+
+                if (intersects.length > 0) {
+                    const obj = intersects[0].object;
+                    const depId = obj.userData.id;
+
+                    // Show info toast
+                    this.showTooltip(`Navigating to ${obj.userData.name}...`, {
+                        x: window.innerWidth / 2,
+                        y: window.innerHeight / 2
+                    }, 1500);
+
+                    // Close current panels and open new ones for this dependent file
+                    setTimeout(() => {
+                        this.closeMultiPanelView();
+                        this.showMultiPanelView(depId);
+                    }, 300);
+                }
+            });
+
+            // Animation loop with cleanup check
+            function animate() {
+                if (!renderer.domElement.isConnected) {
+                    // Stop animation if element is removed from DOM
+                    return;
+                }
+
+                requestAnimationFrame(animate);
+                controls.update();
+                renderer.render(scene, camera);
+            }
+            animate();
+
+            // Store panel data
+            this.panels.dependents = {
+                scene,
+                camera,
+                renderer,
+                controls,
+                nodes,
+                nodeObjects
+            };
+
+            // Handle resize
+            const resizeHandler = () => {
+                if (!this.isPanelMode || !renderer.domElement.isConnected) return;
+
+                const newWidth = container.clientWidth;
+                const newHeight = container.clientHeight;
+
+                if (newWidth > 0 && newHeight > 0) {
+                    camera.aspect = newWidth / newHeight;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(newWidth, newHeight);
+                }
+            };
+
+            window.addEventListener('resize', resizeHandler);
+
+            // Add method to handle view toggling (2D/3D)
+            this.panels.dependents.setViewMode = (mode) => {
+                if (mode === '2d') {
+                    // Flatten nodes to z=0
+                    Object.values(nodeObjects).forEach(node => {
+                        const pos = node.position;
+                        node.position.set(pos.x, pos.y, 0);
+                    });
+
+                    // Disable rotation
+                    controls.noRotate = true;
+                } else {
+                    // Re-apply 3D positions
+                    this.applySimpleForceLayout(nodeArray, nodeObjects, true);
+
+                    // Enable rotation
+                    controls.noRotate = false;
+                }
+            };
+
+        } catch (error) {
+            console.error('Error creating dependents panel:', error);
+
+            // Remove loading indicator
+            loadingDiv.remove();
+
+            // Show error state
+            this.showEmptyState(container, 'dependents', 'Error creating dependents visualization.');
+        }
+    }
+
+    // Helper method for simple force layout (if not already defined)
+    applySimpleForceLayout(nodes, nodeObjects, use3D = false) {
+        // Skip if no nodes
+        if (nodes.length === 0) return;
+
+        // Start with current positions
+        nodes.forEach(node => {
+            const obj = nodeObjects[node.id];
+            if (!obj) return;
+
+            node.x = obj.position.x;
+            node.y = obj.position.y;
+            node.z = use3D ? obj.position.z : 0;
+
+            // Initialize forces
+            node.forceX = 0;
+            node.forceY = 0;
+            node.forceZ = 0;
+        });
+
+        // Apply simple repulsion forces for a circular layout
+        const iterations = 50;
+        const repulsionForce = 800;
+
+        for (let i = 0; i < iterations; i++) {
+            // Calculate repulsion forces
+            nodes.forEach(nodeA => {
+                nodes.forEach(nodeB => {
+                    if (nodeA.id === nodeB.id) return;
+
+                    const dx = nodeA.x - nodeB.x;
+                    const dy = nodeA.y - nodeB.y;
+                    const dz = use3D ? nodeA.z - nodeB.z : 0;
+
+                    const distance = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
+
+                    const force = repulsionForce / (distance * distance);
+
+                    nodeA.forceX += (dx / distance) * force;
+                    nodeA.forceY += (dy / distance) * force;
+                    if (use3D) nodeA.forceZ += (dz / distance) * force;
+                });
+
+                // Add a centering force
+                const centeringForce = 0.05;
+                nodeA.forceX -= nodeA.x * centeringForce;
+                nodeA.forceY -= nodeA.y * centeringForce;
+                if (use3D) nodeA.forceZ -= nodeA.z * centeringForce;
+            });
+
+            // Apply forces
+            const cooling = 1 - (i / iterations);
+            nodes.forEach(node => {
+                node.x += node.forceX * cooling;
+                node.y += node.forceY * cooling;
+                if (use3D) node.z += node.forceZ * cooling;
+
+                // Update node object position
+                if (nodeObjects[node.id]) {
+                    nodeObjects[node.id].position.set(
+                        node.x,
+                        node.y,
+                        use3D ? node.z : 0
+                    );
+                }
+
+                // Clear forces for next iteration
+                node.forceX = 0;
+                node.forceY = 0;
+                node.forceZ = 0;
+            });
+        }
+    }
+
+    // 1. Add a helper method to show empty states in panels
+    showEmptyState(container, type, message) {
+        console.log(`Showing empty state in ${type} panel`);
+
+        let icon, title;
+
+        // Different empty state by panel type
+        switch (type) {
+            case 'dependencies':
+                icon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+        </svg>`;
+                title = "No Dependencies";
+                break;
+            case 'methods':
+                icon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+        </svg>`;
+                title = "No Methods Found";
+                break;
+            case 'dependents':
+                icon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+        </svg>`;
+                title = "No Dependents";
+                break;
+        }
+
+        // Create empty state element
+        const emptyStateDiv = document.createElement('div');
+        emptyStateDiv.className = 'panel-empty-state';
+        emptyStateDiv.innerHTML = `
+      ${icon}
+      <h4>${title}</h4>
+      <p>${message || 'No data to display in this panel.'}</p>
+    `;
+
+        // Clear container and add empty state
+        container.innerHTML = '';
+        container.appendChild(emptyStateDiv);
+    }
+
+    // Create right sidebar with file information
+    createSidebar(fileId) {
+        const sidebarContainer = document.createElement('div');
+        sidebarContainer.id = 'file-info-sidebar';
+        sidebarContainer.className = 'file-info-sidebar';
+
+        const fileNode = this.nodes[fileId];
+        const fileMethods = this.methodData[fileId]?.methods || [];
+
+        // Calculate complexity score (simple metric based on method count and dependencies)
+        const complexity = Math.min(10, Math.ceil((fileMethods.length + (this.dependencies[fileId]?.length || 0)) / 3));
+
+        sidebarContainer.innerHTML = `
+      <div class="sidebar-header">
+        <h3>File Information</h3>
+        <button id="toggle-sidebar" class="btn btn-secondary">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+      <div class="sidebar-content">
+        <div class="info-section">
+          <h4>Basic Information</h4>
+          <div class="info-item">
+            <span class="info-item-label">File Name</span>
+            <span class="info-item-value">${fileNode.name}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-item-label">Path</span>
+            <span class="info-item-value" style="word-break: break-all;">${fileNode.path}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-item-label">Type</span>
+            <span class="info-item-value">
+              <span class="badge badge-primary">${fileNode.type}</span>
+            </span>
+          </div>
+          <div class="info-item">
+            <span class="info-item-label">Size</span>
+            <span class="info-item-value">${Math.round(fileNode.size)} bytes</span>
+          </div>
+        </div>
+        
+        <div class="info-section">
+          <h4>Dependencies</h4>
+          <div class="info-item">
+            <span class="info-item-label">Import Count</span>
+            <span class="info-item-value">${this.dependencies[fileId]?.length || 0}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-item-label">Imported By</span>
+            <span class="info-item-value">${this.dependents[fileId]?.length || 0} files</span>
+          </div>
+        </div>
+        
+        <div class="info-section">
+          <h4>Methods</h4>
+          <div class="info-item">
+            <span class="info-item-label">Method Count</span>
+            <span class="info-item-value">${fileMethods.length}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-item-label">Complexity Score</span>
+            <span class="info-item-value">
+              <div class="complexity-bar">
+                ${Array(10).fill(0).map((_, i) => `
+                  <div class="complexity-segment ${i < complexity ? 'filled' : ''}"></div>
+                `).join('')}
+              </div>
+              <span>${complexity}/10</span>
+            </span>
+          </div>
+        </div>
+        
+        <div class="info-section">
+          <h4>Quick Actions</h4>
+          <div class="action-buttons">
+            <button id="pin-file" class="btn btn-outline">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2L12 22"></path>
+                <path d="M5 12H19"></path>
+              </svg>
+              Pin File
+            </button>
+            <button id="copy-path" class="btn btn-outline">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M8 5H6C4.89543 5 4 5.89543 4 7V19C4 20.1046 4.89543 21 6 21H16C17.1046 21 18 20.1046 18 19V7C18 5.89543 17.1046 5 16 5H14"></path>
+                <path d="M12 12H16V16H12V12Z"></path>
+                <path d="M12 4H20V8H12V4Z"></path>
+              </svg>
+              Copy Path
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+
+        // Add to document
+        document.getElementById('visualization-container').appendChild(sidebarContainer);
+
+        // Set up toggle button
+        document.getElementById('toggle-sidebar').addEventListener('click', () => {
+            sidebarContainer.classList.toggle('collapsed');
+
+            // Adjust panel sizes when sidebar is toggled
+            const panelsContainer = document.querySelector('.panels-container');
+            if (sidebarContainer.classList.contains('collapsed')) {
+                panelsContainer.style.marginRight = '0';
+            } else {
+                panelsContainer.style.marginRight = '300px';
+            }
+
+            // Trigger resize event to update panels
+            window.dispatchEvent(new Event('resize'));
+        });
+
+        // Set up copy path button
+        document.getElementById('copy-path').addEventListener('click', () => {
+            navigator.clipboard.writeText(fileNode.path)
+                .then(() => {
+                    this.showTooltip('Path copied to clipboard', {
+                        x: window.innerWidth / 2,
+                        y: window.innerHeight / 2
+                    }, 2000);
+                })
+                .catch(err => {
+                    console.error('Could not copy path: ', err);
+                });
+        });
+
+        // Store sidebar reference
+        this.sidebar = {
+            element: sidebarContainer,
+            visible: true
+        };
+    }
+
+    // Close multi-panel view and return to main graph
+    closeMultiPanelView() {
+        // Remove panel container
+        const panelContainer = document.getElementById('multi-panel-container');
+        if (panelContainer) {
+            panelContainer.remove();
+        }
+
+        // Remove sidebar
+        const sidebar = document.getElementById('file-info-sidebar');
+        if (sidebar) {
+            sidebar.remove();
+        }
+
+        // Show main visualization
+        this.showMainVisualization();
+
+        // Reset panel mode flag
+        this.isPanelMode = false;
+        this.currentFile = null;
+
+        // Clean up panel references
+        Object.keys(this.panels).forEach(key => {
+            if (this.panels[key]) {
+                // Clean up Three.js resources
+                if (this.panels[key].renderer) {
+                    this.panels[key].renderer.dispose();
+                }
+                if (this.panels[key].controls) {
+                    this.panels[key].controls.dispose();
+                }
+                this.panels[key] = null;
+            }
+        });
+    }
+
+    // Apply force-directed layout to nodes in a panel
+    applyForceDirectedLayout(nodes, links, nodeObjects, scene) {
+        // Skip if no nodes
+        if (nodes.length === 0) return;
+
+        // Start with current positions
+        nodes.forEach(node => {
+            node.x = nodeObjects[node.id].position.x;
+            node.y = nodeObjects[node.id].position.y;
+            node.z = nodeObjects[node.id].position.z;
+
+            // Initialize forces
+            node.forceX = 0;
+            node.forceY = 0;
+            node.forceZ = 0;
+        });
+
+        // Run iterations of force-directed algorithm
+        const iterations = 50;
+        const repulsionForce = 1000;
+        const attractionForce = 0.1;
+
+        for (let i = 0; i < iterations; i++) {
+            // Calculate repulsion forces
+            nodes.forEach(nodeA => {
+                nodes.forEach(nodeB => {
+                    if (nodeA.id === nodeB.id) return;
+
+                    const dx = nodeA.x - nodeB.x;
+                    const dy = nodeA.y - nodeB.y;
+                    const dz = nodeA.z - nodeB.z;
+
+                    const distance = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
+
+                    const force = repulsionForce / (distance * distance);
+
+                    nodeA.forceX += (dx / distance) * force;
+                    nodeA.forceY += (dy / distance) * force;
+                    nodeA.forceZ += (dz / distance) * force;
+                });
+            });
+
+            // Calculate attraction forces
+            links.forEach(link => {
+                if (!nodes.find(n => n.id === link.source) || !nodes.find(n => n.id === link.target)) return;
+
+                const sourceNode = nodes.find(n => n.id === link.source);
+                const targetNode = nodes.find(n => n.id === link.target);
+
+                const dx = sourceNode.x - targetNode.x;
+                const dy = sourceNode.y - targetNode.y;
+                const dz = sourceNode.z - targetNode.z;
+
+                const distance = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
+
+                const force = attractionForce * distance;
+
+                const fx = (dx / distance) * force;
+                const fy = (dy / distance) * force;
+                const fz = (dz / distance) * force;
+
+                sourceNode.forceX -= fx;
+                sourceNode.forceY -= fy;
+                sourceNode.forceZ -= fz;
+
+                targetNode.forceX += fx;
+                targetNode.forceY += fy;
+                targetNode.forceZ += fz;
+            });
+
+            // Apply forces
+            const cooling = 1 - (i / iterations);
+
+            nodes.forEach(node => {
+                node.x += node.forceX * cooling;
+                node.y += node.forceY * cooling;
+                node.z += node.forceZ * cooling;
+
+                // Update node object position
+                if (nodeObjects[node.id]) {
+                    nodeObjects[node.id].position.set(node.x, node.y, node.z);
+                }
+
+                // Clear forces for next iteration
+                node.forceX = 0;
+                node.forceY = 0;
+                node.forceZ = 0;
+            });
+        }
+
+        // Add method labels if appropriate
+        if (scene && nodes.some(n => n.type === 'method' || n.type === 'function' || n.type === 'arrow')) {
+            nodes.forEach(node => {
+                if (nodeObjects[node.id]) {
+                    this.createPanelLabel(node, nodeObjects[node.id], scene);
+                }
+            });
+        }
+    }
+
+    // Create a text label for a method node
+    createPanelLabel(node, nodeObject, scene) {
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+
+        // Set font
+        const fontSize = 24;
+        context.font = `${fontSize}px Inter, Arial, sans-serif`;
+
+        // Measure text
+        const text = node.name;
+        const textMetrics = context.measureText(text);
+        const textWidth = textMetrics.width;
+
+        // Create canvas sized to text
+        canvas.width = textWidth + 20;
+        canvas.height = 40;
+
+        // Clear background with semi-transparent color
+        context.fillStyle = 'rgba(30, 41, 59, 0.7)';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw text
+        context.font = `${fontSize}px Inter, Arial, sans-serif`;
+        context.fillStyle = '#f8fafc';
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+        context.fillText(text, canvas.width / 2, canvas.height / 2);
+
+        // Create sprite
+        const texture = new THREE.CanvasTexture(canvas);
+        const material = new THREE.SpriteMaterial({ map: texture });
+        const sprite = new THREE.Sprite(material);
+
+        // Position above node
+        sprite.position.set(
+            nodeObject.position.x,
+            nodeObject.position.y + 10,
+            nodeObject.position.z
+        );
+
+        // Size sprite
+        sprite.scale.set(canvas.width / 4, canvas.height / 4, 1);
+
+        // Add to scene
+        scene.add(sprite);
+
+        return sprite;
     }
 
     // Initialize Three.js scene, camera, renderer
