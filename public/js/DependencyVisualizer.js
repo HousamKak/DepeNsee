@@ -426,59 +426,59 @@ export class DependencyVisualizer {
 
             // Create panels HTML structure with file name in header
             panelContainer.innerHTML = `
-            <div class="panel-header">
-              <h2>
-                ${this.nodes[fileId].name}
-                <span class="file-type-badge ${this.nodes[fileId].type.substring(1)}">${this.nodes[fileId].type}</span>
-              </h2>
-              <button id="back-to-graph" class="btn btn-primary">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M19 12H5M12 19l-7-7 7-7"></path>
-                </svg>
-                Back to Graph
-              </button>
-            </div>
-            <div class="panels-container">
-              <div id="dependencies-panel" class="panel left-panel">
-                <div class="panel-title">
-                  <h3>Dependencies</h3>
-                  <div class="panel-controls">
-                    <button class="view-toggle" data-panel="dependencies-panel">
-                      <span class="view-2d active">2D</span>
-                      <span class="view-3d">3D</span>
-                    </button>
-                  </div>
-                </div>
-                <div class="panel-visualization" id="dependencies-panel-viz"></div>
-              </div>
-              <div class="resizer" id="left-resizer"></div>
-              <div id="methods-panel" class="panel center-panel">
-                <div class="panel-title">
-                  <h3>Methods</h3>
-                  <div class="panel-controls">
-                    <button class="view-toggle" data-panel="methods-panel">
-                      <span class="view-2d active">2D</span>
-                      <span class="view-3d">3D</span>
-                    </button>
-                  </div>
-                </div>
-                <div class="panel-visualization" id="methods-panel-viz"></div>
-              </div>
-              <div class="resizer" id="right-resizer"></div>
-              <div id="dependents-panel" class="panel right-panel">
-                <div class="panel-title">
-                  <h3>Dependents</h3>
-                  <div class="panel-controls">
-                    <button class="view-toggle" data-panel="dependents-panel">
-                      <span class="view-2d active">2D</span>
-                      <span class="view-3d">3D</span>
-                    </button>
-                  </div>
-                </div>
-                <div class="panel-visualization" id="dependents-panel-viz"></div>
+        <div class="panel-header">
+          <h2>
+            ${this.nodes[fileId].name}
+            <span class="file-type-badge ${this.nodes[fileId].type.substring(1)}">${this.nodes[fileId].type}</span>
+          </h2>
+          <button id="back-to-graph" class="btn btn-primary">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19 12H5M12 19l-7-7 7-7"></path>
+            </svg>
+            Back to Graph
+          </button>
+        </div>
+        <div class="panels-container">
+          <div id="dependencies-panel" class="panel left-panel">
+            <div class="panel-title">
+              <h3>Dependencies</h3>
+              <div class="panel-controls">
+                <button class="view-toggle" data-panel="dependencies-panel">
+                  <span class="view-2d active">2D</span>
+                  <span class="view-3d">3D</span>
+                </button>
               </div>
             </div>
-          `;
+            <div class="panel-visualization" id="dependencies-panel-viz"></div>
+          </div>
+          <div class="resizer" id="left-resizer"></div>
+          <div id="methods-panel" class="panel center-panel">
+            <div class="panel-title">
+              <h3>Methods</h3>
+              <div class="panel-controls">
+                <button class="view-toggle" data-panel="methods-panel">
+                  <span class="view-2d active">2D</span>
+                  <span class="view-3d">3D</span>
+                </button>
+              </div>
+            </div>
+            <div class="panel-visualization" id="methods-panel-viz"></div>
+          </div>
+          <div class="resizer" id="right-resizer"></div>
+          <div id="dependents-panel" class="panel right-panel">
+            <div class="panel-title">
+              <h3>Dependents</h3>
+              <div class="panel-controls">
+                <button class="view-toggle" data-panel="dependents-panel">
+                  <span class="view-2d active">2D</span>
+                  <span class="view-3d">3D</span>
+                </button>
+              </div>
+            </div>
+            <div class="panel-visualization" id="dependents-panel-viz"></div>
+          </div>
+        </div>
+      `;
 
             // Add to document
             const container = document.getElementById('visualization-container');
@@ -489,6 +489,12 @@ export class DependencyVisualizer {
 
             container.appendChild(panelContainer);
             console.log('Panel container created and added to DOM');
+
+            // Initially, don't set margin on panel container (sidebar will be collapsed)
+            const panelsContainer = document.querySelector('.panels-container');
+            if (panelsContainer) {
+                panelsContainer.style.marginRight = '0';
+            }
 
             // Hide any existing toggle buttons to avoid duplicates
             const existingToggleBtn = document.getElementById('super-toggle-btn');
@@ -516,8 +522,14 @@ export class DependencyVisualizer {
                     this.createMethodsPanel(fileId);
                     this.createDependentsPanel(fileId);
 
-                    // Set up right sidebar
+                    // Set up right sidebar - starts collapsed
                     this.createSidebar(fileId);
+
+                    // Show a welcome tooltip
+                    this.showTooltip(`Click on any node to explore related files`, {
+                        x: window.innerWidth / 2,
+                        y: window.innerHeight / 2
+                    }, 3000);
                 }, 100);
             });
         } catch (error) {
@@ -527,6 +539,12 @@ export class DependencyVisualizer {
 
             // Show main visualization again
             this.showMainVisualization();
+
+            // Show error message
+            this.showTooltip(`Error showing file details: ${error.message}`, {
+                x: window.innerWidth / 2,
+                y: window.innerHeight / 2
+            }, 3000);
         }
     }
 
@@ -2012,11 +2030,482 @@ export class DependencyVisualizer {
         container.appendChild(emptyStateDiv);
     }
 
+    // Add this method to DependencyVisualizer.js
+
+    // Unified method for creating graph visualizations across different panels
+    createPanelVisualization(container, nodes, links, options = {}) {
+        // Default options
+        const defaults = {
+            centerNodeId: null,    // For radial layout
+            useRadialLayout: false, // Whether to use radial layout (dependencies panel)
+            nodeColorMap: this.colorMap, // Default color map
+            scene: null,           // Existing scene (optional)
+            camera: null,          // Existing camera (optional)
+            addLabels: true,       // Whether to add text labels
+            viewMode: '2d',        // Initial view mode
+            onNodeClick: null      // Node click handler
+        };
+
+        // Merge defaults with provided options
+        const config = { ...defaults, ...options };
+
+        // Early exit if container not found
+        if (!container) {
+            console.error('Visualization container not found');
+            return null;
+        }
+
+        try {
+            // Add loading indicator
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'panel-loading';
+            loadingDiv.innerHTML = '<div class="panel-loading-spinner"></div>';
+            container.appendChild(loadingDiv);
+
+            // Get dimensions
+            const width = container.clientWidth || 400;
+            const height = container.clientHeight || 300;
+
+            // Create or use provided scene
+            const scene = config.scene || new THREE.Scene();
+            scene.background = new THREE.Color(0x1e293b);
+
+            // Create camera based on view mode
+            let camera;
+            if (config.camera) {
+                camera = config.camera;
+            } else if (config.viewMode === '2d') {
+                const aspect = width / height;
+                const frustumSize = 500;
+                camera = new THREE.OrthographicCamera(
+                    frustumSize * aspect / -2,
+                    frustumSize * aspect / 2,
+                    frustumSize / 2,
+                    frustumSize / -2,
+                    1,
+                    2000
+                );
+                camera.position.z = 300;
+            } else {
+                camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+                camera.position.z = 300;
+            }
+
+            // Create renderer
+            const renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(width, height);
+
+            // Remove loading indicator and add renderer
+            loadingDiv.remove();
+            container.innerHTML = '';
+            container.appendChild(renderer.domElement);
+
+            // Create controls
+            const controls = new TrackballControls(camera, renderer.domElement);
+            controls.rotateSpeed = 1.5;
+            controls.zoomSpeed = 1.2;
+            controls.panSpeed = 2.0;
+
+            // Disable rotation in 2D mode
+            if (config.viewMode === '2d') {
+                controls.noRotate = true;
+            }
+
+            // Create node objects - unified styling for all panels
+            const nodeObjects = {};
+            Object.values(nodes).forEach(node => {
+                // Determine color based on node type
+                let color;
+                if (node.path && node.path.startsWith('library:')) {
+                    color = config.nodeColorMap['library'];
+                } else if (node.type === 'method') {
+                    color = 0x6366F1; // Primary color for methods
+                } else if (node.type === 'arrow') {
+                    color = 0x10B981; // Green for arrow functions
+                } else if (node.type === 'function') {
+                    color = 0x0EA5E9; // Blue for functions
+                } else {
+                    const ext = node.type ? node.type.toLowerCase() : '.js';
+                    color = config.nodeColorMap[ext] || 0xffffff;
+                }
+
+                // Create sphere with consistent styling
+                const size = node.size || 5;
+                const geometry = new THREE.SphereGeometry(size, 32, 32);
+                const material = new THREE.MeshPhongMaterial({
+                    color: color,
+                    shininess: 70,
+                    specular: 0x111111,
+                    emissive: node.isCenter ? 0x333333 : 0x000000 // Highlight center node
+                });
+
+                const sphere = new THREE.Mesh(geometry, material);
+
+                // Initial position - will be adjusted by layout
+                sphere.position.set(
+                    (Math.random() - 0.5) * 200,
+                    (Math.random() - 0.5) * 200,
+                    config.viewMode === '2d' ? 0 : (Math.random() - 0.5) * 50
+                );
+
+                sphere.userData = {
+                    type: 'node',
+                    id: node.id,
+                    ...node,
+                    isCurrentFile: node.isCenter
+                };
+
+                scene.add(sphere);
+                nodeObjects[node.id] = sphere;
+
+                // Create label if configured
+                if (config.addLabels) {
+                    if (typeof this.createPanelLabel === 'function') {
+                        this.createPanelLabel(node, sphere, scene);
+                    }
+                }
+            });
+
+            // Create links between nodes
+            const linkObjects = [];
+            links.forEach(link => {
+                const sourceObj = nodeObjects[link.source];
+                const targetObj = nodeObjects[link.target];
+
+                if (!sourceObj || !targetObj) return;
+
+                // Create curved connection with consistent styling
+                const sourcePos = sourceObj.position;
+                const targetPos = targetObj.position;
+
+                // Create curved path for better visibility
+                const midPoint = new THREE.Vector3(
+                    (sourcePos.x + targetPos.x) / 2,
+                    (sourcePos.y + targetPos.y) / 2,
+                    (sourcePos.z + targetPos.z) / 2 + 15 // Raise curve slightly
+                );
+
+                // Create quadratic bezier curve
+                const curve = new THREE.QuadraticBezierCurve3(
+                    sourcePos.clone(),
+                    midPoint,
+                    targetPos.clone()
+                );
+
+                const points = curve.getPoints(20);
+                const geometry = new THREE.BufferGeometry().setFromPoints(points);
+
+                // Use consistent link color and style
+                const lineMaterial = new THREE.LineBasicMaterial({
+                    color: 0x94a3b8,
+                    transparent: true,
+                    opacity: 0.4
+                });
+
+                const line = new THREE.Line(geometry, lineMaterial);
+                line.userData = {
+                    type: 'link',
+                    source: link.source,
+                    target: link.target
+                };
+
+                scene.add(line);
+                linkObjects.push(line);
+            });
+
+            // Add lighting - consistent across all panels
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            scene.add(ambientLight);
+
+            const pointLight = new THREE.PointLight(0xffffff, 1);
+            pointLight.position.set(100, 100, 100);
+            scene.add(pointLight);
+
+            // Apply layout - either radial or force-directed
+            if (config.useRadialLayout && config.centerNodeId) {
+                // Use radial layout (for dependencies panel)
+                this.applyRadialForceLayout(config.centerNodeId, nodes, nodeObjects, links, config.viewMode === '3d');
+            } else {
+                // Use standard force-directed layout (for methods and dependents panels)
+                const nodeArray = Object.values(nodes);
+                this.applySimpleForceLayout(nodeArray, nodeObjects, config.viewMode === '3d');
+            }
+
+            // Create panel tooltip for hover effect
+            const tooltip = document.createElement('div');
+            tooltip.className = 'panel-tooltip';
+            container.appendChild(tooltip);
+
+            // Add hover effect
+            const raycaster = new THREE.Raycaster();
+            const mouse = new THREE.Vector2();
+
+            container.addEventListener('mousemove', (event) => {
+                if (!this.isPanelMode) return;
+
+                // Calculate mouse position
+                const rect = container.getBoundingClientRect();
+                mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+                mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+                // Update raycaster
+                raycaster.setFromCamera(mouse, camera);
+
+                // Find intersections
+                const intersects = raycaster.intersectObjects(Object.values(nodeObjects));
+
+                // Reset all highlights
+                Object.values(nodeObjects).forEach(node => {
+                    if (!node.userData.isCurrentFile) {
+                        node.material.emissive.setHex(0x000000);
+                    }
+                });
+
+                linkObjects.forEach(link => {
+                    link.material.opacity = 0.3;
+                });
+
+                // Hide tooltip by default
+                tooltip.classList.remove('visible');
+
+                if (intersects.length > 0) {
+                    // Highlight intersected node
+                    const obj = intersects[0].object;
+                    const nodeId = obj.userData.id;
+
+                    if (!obj.userData.isCurrentFile) {
+                        obj.material.emissive.setHex(0x333333);
+                    }
+
+                    // Highlight connections
+                    linkObjects.forEach(link => {
+                        if (link.userData.source === nodeId || link.userData.target === nodeId) {
+                            link.material.opacity = 0.8;
+
+                            // Highlight connected node
+                            const connectedId = link.userData.source === nodeId ?
+                                link.userData.target : link.userData.source;
+
+                            if (nodeObjects[connectedId]) {
+                                nodeObjects[connectedId].material.emissive.setHex(0x222222);
+                            }
+                        }
+                    });
+
+                    // Show tooltip
+                    const nodeData = obj.userData;
+                    tooltip.innerHTML = `
+            <div>${nodeData.name}</div>
+            ${nodeData.path ? `<div style="font-size: 0.7rem; opacity: 0.7;">${nodeData.path}</div>` : ''}
+            ${nodeData.isCurrentFile ? '<div style="font-size: 0.7rem; color: #6366F1;">Current File</div>' : ''}
+            ${nodeData.type ? `<div style="font-size: 0.7rem;">${nodeData.type}</div>` : ''}
+          `;
+                    tooltip.style.left = `${event.clientX - rect.left + 10}px`;
+                    tooltip.style.top = `${event.clientY - rect.top + 10}px`;
+                    tooltip.classList.add('visible');
+                }
+            });
+
+            // Handle click events if callback provided
+            if (typeof config.onNodeClick === 'function') {
+                container.addEventListener('click', (event) => {
+                    if (!this.isPanelMode) return;
+
+                    // Calculate mouse position
+                    const rect = container.getBoundingClientRect();
+                    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+                    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+                    // Update raycaster
+                    raycaster.setFromCamera(mouse, camera);
+
+                    // Find intersections
+                    const intersects = raycaster.intersectObjects(Object.values(nodeObjects));
+
+                    if (intersects.length > 0) {
+                        const obj = intersects[0].object;
+                        config.onNodeClick(obj.userData);
+                    }
+                });
+            }
+
+            // Update lines when nodes move
+            const updateLines = () => {
+                linkObjects.forEach(lineObj => {
+                    if (lineObj.geometry.type !== 'BufferGeometry') return;
+                    if (!lineObj.userData || !lineObj.userData.source || !lineObj.userData.target) return;
+
+                    const sourceObj = nodeObjects[lineObj.userData.source];
+                    const targetObj = nodeObjects[lineObj.userData.target];
+
+                    if (!sourceObj || !targetObj) return;
+
+                    // Update curve points
+                    const sourcePos = sourceObj.position;
+                    const targetPos = targetObj.position;
+
+                    // Create curved path
+                    const midPoint = new THREE.Vector3(
+                        (sourcePos.x + targetPos.x) / 2,
+                        (sourcePos.y + targetPos.y) / 2,
+                        (sourcePos.z + targetPos.z) / 2 + 15
+                    );
+
+                    // Create quadratic bezier curve
+                    const curve = new THREE.QuadraticBezierCurve3(
+                        sourcePos.clone(),
+                        midPoint,
+                        targetPos.clone()
+                    );
+
+                    const points = curve.getPoints(20);
+                    lineObj.geometry.setFromPoints(points);
+                });
+            };
+
+            // Animation loop with cleanup check
+            function animate() {
+                if (!renderer.domElement.isConnected) {
+                    // Stop animation if element is removed from DOM
+                    return;
+                }
+
+                requestAnimationFrame(animate);
+                updateLines();
+                controls.update();
+                renderer.render(scene, camera);
+            }
+            animate();
+
+            // Handle resize
+            const resizeHandler = () => {
+                if (!renderer.domElement.isConnected) return;
+
+                const newWidth = container.clientWidth;
+                const newHeight = container.clientHeight;
+
+                if (newWidth > 0 && newHeight > 0) {
+                    if (camera.isOrthographicCamera) {
+                        const aspect = newWidth / newHeight;
+                        const frustumSize = 500;
+                        camera.left = frustumSize * aspect / -2;
+                        camera.right = frustumSize * aspect / 2;
+                        camera.top = frustumSize / 2;
+                        camera.bottom = frustumSize / -2;
+                    } else {
+                        camera.aspect = newWidth / newHeight;
+                    }
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(newWidth, newHeight);
+                }
+            };
+
+            window.addEventListener('resize', resizeHandler);
+
+            // Return panel data for reference
+            return {
+                scene,
+                camera,
+                renderer,
+                controls,
+                nodes,
+                nodeObjects,
+                links,
+                linkObjects,
+
+                // Method to set view mode (2D/3D)
+                setViewMode: (mode) => {
+                    if (mode === '2d') {
+                        // Flatten nodes to z=0
+                        Object.values(nodeObjects).forEach(node => {
+                            const pos = node.position;
+                            node.position.set(pos.x, pos.y, 0);
+                        });
+
+                        // Disable rotation
+                        controls.noRotate = true;
+
+                        // Switch to orthographic camera if needed
+                        if (camera.isPerspectiveCamera) {
+                            const aspect = renderer.domElement.width / renderer.domElement.height;
+                            const frustumSize = 500;
+                            const newCamera = new THREE.OrthographicCamera(
+                                frustumSize * aspect / -2,
+                                frustumSize * aspect / 2,
+                                frustumSize / 2,
+                                frustumSize / -2,
+                                1,
+                                2000
+                            );
+
+                            // Copy position
+                            newCamera.position.copy(camera.position);
+                            newCamera.position.z = 300; // Force consistent Z position
+
+                            // Replace camera
+                            camera = newCamera;
+                            controls.object = camera;
+                            camera.lookAt(0, 0, 0);
+                        }
+                    } else {
+                        // Enable rotation for 3D mode
+                        controls.noRotate = false;
+
+                        // Re-apply 3D positions depending on layout type
+                        if (config.useRadialLayout && config.centerNodeId) {
+                            this.applyRadialForceLayout(config.centerNodeId, nodes, nodeObjects, links, true);
+                        } else {
+                            const nodeArray = Object.values(nodes);
+                            this.applySimpleForceLayout(nodeArray, nodeObjects, true);
+                        }
+
+                        // Switch to perspective camera if needed
+                        if (camera.isOrthographicCamera) {
+                            const newCamera = new THREE.PerspectiveCamera(
+                                75,
+                                renderer.domElement.width / renderer.domElement.height,
+                                0.1,
+                                2000
+                            );
+
+                            // Copy position
+                            newCamera.position.copy(camera.position);
+
+                            // Replace camera
+                            camera = newCamera;
+                            controls.object = camera;
+                            camera.lookAt(0, 0, 0);
+                        }
+                    }
+
+                    controls.update();
+                },
+
+                // Method to clean up resources
+                dispose: () => {
+                    window.removeEventListener('resize', resizeHandler);
+                    controls.dispose();
+                    renderer.dispose();
+
+                    // Remove any event listeners
+                    const canvas = renderer.domElement;
+                    const newCanvas = canvas.cloneNode(true);
+                    if (canvas.parentNode) {
+                        canvas.parentNode.replaceChild(newCanvas, canvas);
+                    }
+                }
+            };
+        } catch (error) {
+            console.error('Error creating panel visualization:', error);
+            return null;
+        }
+    }
+
     // Create right sidebar with file information
     createSidebar(fileId) {
         const sidebarContainer = document.createElement('div');
         sidebarContainer.id = 'file-info-sidebar';
-        sidebarContainer.className = 'file-info-sidebar';
+        sidebarContainer.className = 'file-info-sidebar collapsed'; // Start collapsed by default
 
         const fileNode = this.nodes[fileId];
         const fileMethods = this.methodData[fileId]?.methods || [];
@@ -2029,8 +2518,9 @@ export class DependencyVisualizer {
         <h3>File Information</h3>
         <button id="toggle-sidebar" class="btn btn-secondary">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M6 18L18 6M6 6l12 12"></path>
+            <path d="M19 9l-7 7-7-7"></path>
           </svg>
+          <span class="toggle-text">Show</span>
         </button>
       </div>
       <div class="sidebar-content">
@@ -2113,21 +2603,48 @@ export class DependencyVisualizer {
         // Add to document
         document.getElementById('visualization-container').appendChild(sidebarContainer);
 
-        // Set up toggle button
-        document.getElementById('toggle-sidebar').addEventListener('click', () => {
-            sidebarContainer.classList.toggle('collapsed');
+        // Set up toggle button with improved functionality
+        const toggleButton = document.getElementById('toggle-sidebar');
+        const toggleText = toggleButton.querySelector('.toggle-text');
 
-            // Adjust panel sizes when sidebar is toggled
-            const panelsContainer = document.querySelector('.panels-container');
-            if (sidebarContainer.classList.contains('collapsed')) {
-                panelsContainer.style.marginRight = '0';
-            } else {
-                panelsContainer.style.marginRight = '300px';
-            }
+        if (toggleButton) {
+            toggleButton.addEventListener('click', () => {
+                // Get the sidebar element and panels container
+                const sidebar = document.getElementById('file-info-sidebar');
+                const panelsContainer = document.querySelector('.panels-container');
 
-            // Trigger resize event to update panels
-            window.dispatchEvent(new Event('resize'));
-        });
+                if (!sidebar || !panelsContainer) return;
+
+                // Toggle collapsed state
+                sidebar.classList.toggle('collapsed');
+
+                // Update button text
+                if (sidebar.classList.contains('collapsed')) {
+                    toggleText.textContent = 'Show';
+                    panelsContainer.style.marginRight = '0';
+
+                    // Show a notification
+                    this.showTooltip('Sidebar hidden', {
+                        x: window.innerWidth - 100,
+                        y: 50
+                    }, 1500);
+                } else {
+                    toggleText.textContent = 'Hide';
+                    panelsContainer.style.marginRight = '300px';
+
+                    // Show a notification
+                    this.showTooltip('Sidebar visible', {
+                        x: window.innerWidth - 100,
+                        y: 50
+                    }, 1500);
+                }
+
+                // Trigger resize event to update panels
+                setTimeout(() => {
+                    window.dispatchEvent(new Event('resize'));
+                }, 300); // Delay to allow CSS transition to complete
+            });
+        }
 
         // Set up copy path button
         document.getElementById('copy-path').addEventListener('click', () => {
@@ -2146,7 +2663,7 @@ export class DependencyVisualizer {
         // Store sidebar reference
         this.sidebar = {
             element: sidebarContainer,
-            visible: true
+            visible: false // Start with sidebar hidden
         };
     }
 
