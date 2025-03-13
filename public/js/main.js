@@ -372,84 +372,69 @@ function handleMultiPanelClicks(event) {
         // Find which view mode option was clicked
         if (event.target.classList.contains('view-2d')) {
             // Switch to 2D
+            console.log(`User clicked 2D button for ${panelId}`);
             togglePanelViewMode(panelId, '2d');
-            toggleButton.classList.remove('view-3d-active');
         } else if (event.target.classList.contains('view-3d')) {
             // Switch to 3D
+            console.log(`User clicked 3D button for ${panelId}`);
             togglePanelViewMode(panelId, '3d');
-            toggleButton.classList.add('view-3d-active');
         }
+
+        // Prevent the event from bubbling further
+        event.stopPropagation();
     }
 }
 
 // Toggle a panel's view mode between 2D and 3D
 function togglePanelViewMode(panelId, mode) {
-    if (!visualizerInstance || !visualizerInstance.isPanelMode) return;
+    console.log(`Toggling panel ${panelId} to ${mode} mode`);
+
+    if (!visualizerInstance || !visualizerInstance.isPanelMode) {
+        console.error('Cannot toggle panel - visualizer not in panel mode');
+        return;
+    }
+
+    // Get the panel type from the ID by removing '-panel' suffix
+    const panelType = panelId.replace('-panel', '');
 
     // Get the panel
-    const panel = visualizerInstance.panels[panelId.replace('-panel', '')];
-    if (!panel) return;
+    const panel = visualizerInstance.panels[panelType];
+    if (!panel) {
+        console.error(`Panel not found: ${panelType}`);
+        return;
+    }
 
-    // Update panel's camera and controls based on mode
-    if (mode === '2d') {
-        // Switch to orthographic camera for 2D mode
-        panel.controls.noRotate = true;
-        if (panel.camera.isPerspectiveCamera) {
-            // Create orthographic camera
-            const aspect = panel.renderer.domElement.width / panel.renderer.domElement.height;
-            const frustumSize = 500;
-
-            const newCamera = new THREE.OrthographicCamera(
-                frustumSize * aspect / -2,
-                frustumSize * aspect / 2,
-                frustumSize / 2,
-                frustumSize / -2,
-                1,
-                2000
-            );
-
-            // Copy position
-            newCamera.position.copy(panel.camera.position);
-
-            // Force Z position
-            newCamera.position.z = 1000;
-
-            // Update panel's camera
-            panel.camera = newCamera;
-            panel.camera.lookAt(0, 0, 0);
-
-            // Update controls
-            panel.controls.object = newCamera;
-            panel.controls.update();
+    try {
+        // Update the button appearance
+        const toggleButton = document.querySelector(`.view-toggle[data-panel="${panelId}"]`);
+        if (toggleButton) {
+            if (mode === '2d') {
+                toggleButton.classList.remove('view-3d-active');
+            } else {
+                toggleButton.classList.add('view-3d-active');
+            }
         }
 
-        // Flatten nodes to z=0
-        Object.values(panel.nodeObjects).forEach(node => {
-            const pos = node.position;
-            node.position.set(pos.x, pos.y, 0);
-        });
-    } else {
-        // Switch to perspective camera for 3D mode
-        panel.controls.noRotate = false;
-        if (panel.camera.isOrthographicCamera) {
-            // Create perspective camera
-            const newCamera = new THREE.PerspectiveCamera(
-                75,
-                panel.renderer.domElement.width / panel.renderer.domElement.height,
-                0.1,
-                2000
-            );
+        // Call the panel's setViewMode method
+        if (typeof panel.setViewMode === 'function') {
+            console.log(`Setting ${panelType} panel to ${mode} mode`);
+            panel.setViewMode(mode);
 
-            // Copy position
-            newCamera.position.copy(panel.camera.position);
-
-            // Update panel's camera
-            panel.camera = newCamera;
-            panel.camera.lookAt(0, 0, 0);
-
-            // Update controls
-            panel.controls.object = newCamera;
-            panel.controls.update();
+            // Show a confirmation toast
+            visualizerInstance.showTooltip(`${panelType} panel switched to ${mode.toUpperCase()} mode`, {
+                x: window.innerWidth / 2,
+                y: window.innerHeight / 2
+            }, 1500);
+        } else {
+            console.error(`Panel ${panelType} does not have setViewMode method`);
         }
+    } catch (error) {
+        console.error(`Error toggling view mode for panel ${panelId}:`, error);
+
+        // Show error toast
+        visualizerInstance.showTooltip(`Error switching view mode`, {
+            x: window.innerWidth / 2,
+            y: window.innerHeight / 2
+        }, 2000);
     }
 }
